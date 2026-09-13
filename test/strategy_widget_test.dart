@@ -55,11 +55,15 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Mission').first);
+      await tester.tap(find.text('Missions').first);
       await tester.pumpAndSettle();
       expect(find.text('Job Switch — Higher Salary'), findsOneWidget);
       expect(find.text('Modern C++'), findsOneWidget);
       expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('Details & related workspaces'));
+      await tester.tap(find.text('Details & related workspaces'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Career workspace'));
       await tester.tap(find.text('Career workspace'));
       await tester.pumpAndSettle();
       expect(find.text('Skill demand vs readiness'), findsOneWidget);
@@ -68,7 +72,7 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
       for (final table in fields.keys) {
-        final ctx = tester.element(find.text('Mission').first);
+        final ctx = tester.element(find.text('Missions').first);
         final future = editStrategyRecord(ctx, app, table);
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: table);
@@ -91,7 +95,7 @@ void main() {
       tester.view.physicalSize = const Size(700, 900);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      await tester.tap(find.byTooltip('Mission').first);
+      await tester.tap(find.byTooltip('Missions').first);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

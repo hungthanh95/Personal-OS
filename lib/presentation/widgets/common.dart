@@ -58,9 +58,107 @@ class Panel extends StatelessWidget {
     super.key,
   });
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context) => Material(
+    type: MaterialType.card,
+    color: Theme.of(context).colorScheme.surface,
+    elevation: Theme.of(context).brightness == Brightness.light ? 1 : 0,
+    shadowColor: const Color(0x1817345c),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: BorderSide(
+        color: Theme.of(
+          context,
+        ).colorScheme.outlineVariant.withValues(alpha: .55),
+      ),
+    ),
+    clipBehavior: Clip.antiAlias,
     child: Padding(padding: padding, child: child),
   );
+}
+
+class SectionLabel extends StatelessWidget {
+  final String label;
+  const SectionLabel(this.label, {super.key});
+  @override
+  Widget build(BuildContext context) => Text(
+    label.toUpperCase(),
+    style: TextStyle(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      fontSize: 11,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 1.05,
+    ),
+  );
+}
+
+class StatusPill extends StatelessWidget {
+  final String label;
+  final Color color;
+  const StatusPill({required this.label, required this.color, super.key});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: .11),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: color.withValues(alpha: .18)),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color),
+    ),
+  );
+}
+
+class MetricBar extends StatelessWidget {
+  final String label;
+  final double value;
+  final String? valueLabel;
+  final Color? color;
+  const MetricBar({
+    required this.label,
+    required this.value,
+    this.valueLabel,
+    this.color,
+    super.key,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final safe = value.clamp(0.0, 1.0);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ),
+              Text(
+                valueLabel ?? '${(safe * 100).round()}%',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          LinearProgressIndicator(
+            value: safe,
+            color: color,
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(6),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class Section extends StatelessWidget {
@@ -95,22 +193,20 @@ class Section extends StatelessWidget {
 class EmptyState extends StatelessWidget {
   final String title, message, action;
   final VoidCallback onAction;
+  final IconData icon;
   const EmptyState(
     this.title,
     this.message,
     this.action,
     this.onAction, {
+    this.icon = Icons.lightbulb_outline,
     super.key,
   });
   @override
   Widget build(BuildContext context) => Panel(
     child: Column(
       children: [
-        Icon(
-          Icons.lightbulb_outline,
-          size: 32,
-          color: Theme.of(context).colorScheme.primary,
-        ),
+        Icon(icon, size: 32, color: Theme.of(context).colorScheme.primary),
         const SizedBox(height: 16),
         Text(title, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),

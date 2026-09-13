@@ -92,18 +92,7 @@ class _SessionScreenState extends State<SessionScreen> {
       final why =
           '${w.whyPath(s)}\n\n${s.text('why').isNotEmpty ? s.text('why') : g?.text('why') ?? 'Define why this work matters when planning your next session.'}';
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Focus session'),
-          actions: [
-            if (s.status == SessionStatus.planned)
-              TextButton.icon(
-                onPressed: () =>
-                    editRecord(context, widget.app, 'sessions', entity: s),
-                icon: const Icon(Icons.edit_outlined),
-                label: const Text('Edit plan'),
-              ),
-          ],
-        ),
+        appBar: AppBar(title: const Text('Focus session')),
         body: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 850),
@@ -128,92 +117,222 @@ class _SessionScreenState extends State<SessionScreen> {
                 Text(
                   '${dayLabel(s.plannedStart)} · ${timeLabel(s.plannedStart)} · ${s.plannedMinutes} min planned',
                 ),
-                const SizedBox(height: 32),
-                Section(
-                  'WHY',
-                  child: Text(
-                    why,
-                    style: const TextStyle(fontSize: 17, height: 1.6),
+                const SizedBox(height: 24),
+                if (s.status == SessionStatus.active) ...[
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        durationLabel(s.elapsedSeconds(DateTime.now())),
+                        style: const TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                      const Text('Elapsed · continues while the app is closed'),
+                    ],
                   ),
-                ),
-                Section(
-                  'INPUT',
-                  child: SelectableText(
-                    s.text('input').isEmpty
-                        ? 'No reference material attached.'
-                        : s.text('input'),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => editRecord(
+                          context,
+                          widget.app,
+                          'knowledge',
+                          initial: {
+                            'title': '${s.title} — quick note',
+                            'type': 'Learning',
+                            'project_id': s.projectId,
+                            'goal_id': s.goalId,
+                            'session_id': s.id,
+                          },
+                        ),
+                        icon: const Icon(Icons.note_add_outlined),
+                        label: const Text('Quick note'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => attempt(
+                          context,
+                          () => widget.app.review(
+                            s,
+                            SessionStatus.inProgress,
+                            nextAction: s.text('next_action'),
+                          ),
+                        ),
+                        icon: const Icon(Icons.pause),
+                        label: const Text('Pause'),
+                      ),
+                      FilledButton.icon(
+                        onPressed: () => reviewSession(context, widget.app, s),
+                        icon: const Icon(Icons.check),
+                        label: const Text('Finish'),
+                      ),
+                    ],
                   ),
-                ),
-                Section(
-                  'RELATED KNOWLEDGE',
-                  child: Panel(
-                    child: loadingKnowledge
-                        ? const Text('Searching local Knowledge…')
-                        : relatedKnowledge.isEmpty
-                        ? const Text(
-                            'No related local Knowledge found for this session objective.',
-                          )
-                        : Column(
+                ] else if (!s.status.terminal) ...[
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: () =>
+                            attempt(context, () => widget.app.start(s)),
+                        icon: const Icon(Icons.play_arrow),
+                        label: Text(
+                          s.status == SessionStatus.inProgress
+                              ? 'Resume session'
+                              : s.status == SessionStatus.blocked
+                              ? 'Resolve blocker & resume'
+                              : 'Start session',
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => editRecord(
+                          context,
+                          widget.app,
+                          'sessions',
+                          entity: s,
+                        ),
+                        icon: const Icon(Icons.edit_outlined),
+                        label: const Text('Edit'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            rescheduleDialog(context, widget.app, s),
+                        icon: const Icon(Icons.event_repeat_outlined),
+                        label: const Text('Reschedule'),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => reviewSession(
+                          context,
+                          widget.app,
+                          s,
+                          status: SessionStatus.skipped,
+                        ),
+                        icon: const Icon(Icons.skip_next_outlined),
+                        label: const Text('Skip'),
+                      ),
+                      PopupMenuButton<String>(
+                        tooltip: 'More session actions',
+                        onSelected: (value) {
+                          if (value == 'cancel') {
+                            reviewSession(
+                              context,
+                              widget.app,
+                              s,
+                              status: SessionStatus.cancelled,
+                            );
+                          }
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: 'cancel',
+                            child: Text('Cancel session'),
+                          ),
+                        ],
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              for (final hit in relatedKnowledge)
-                                ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: const Icon(Icons.menu_book_outlined),
-                                  title: Text(hit.item.title),
-                                  subtitle: Text(
-                                    '${hit.snippet}\n${hit.relationship}${hit.sectionTitle == null ? '' : ' · ${hit.sectionTitle} @ ${hit.startOffset ?? 0}'}',
-                                  ),
-                                  onTap: () => openEvidence(
-                                    context,
-                                    widget.app,
-                                    hit.item,
-                                  ),
-                                ),
+                              Icon(Icons.more_horiz, size: 18),
+                              SizedBox(width: 6),
+                              Text('More'),
                             ],
                           ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                Section(
-                  "TODAY’S TARGET",
-                  child: Panel(
-                    child: Text(
-                      s.text('target').isEmpty
-                          ? 'Produce one concrete result worth recording.'
-                          : s.text('target'),
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ),
-                ),
+                ],
+                const SizedBox(height: 32),
                 if (s.status == SessionStatus.active) ...[
-                  Text(
-                    durationLabel(s.elapsedSeconds(DateTime.now())),
-                    style: const TextStyle(
-                      fontSize: 42,
-                      fontWeight: FontWeight.w300,
+                  Section(
+                    "TODAY’S TARGET",
+                    child: Panel(
+                      child: Text(
+                        s.text('target').isEmpty
+                            ? 'Produce one concrete result worth recording.'
+                            : s.text('target'),
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
                     ),
                   ),
-                  const Text(
-                    'Elapsed time · continues while the app is closed',
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: () => reviewSession(context, widget.app, s),
-                    icon: const Icon(Icons.check),
-                    label: const Text('Finish & record result'),
-                  ),
-                ] else if (!s.status.terminal)
-                  FilledButton.icon(
-                    onPressed: () =>
-                        attempt(context, () => widget.app.start(s)),
-                    icon: const Icon(Icons.play_arrow),
-                    label: Text(
-                      s.status == SessionStatus.inProgress
-                          ? 'Resume session'
-                          : s.status == SessionStatus.blocked
-                          ? 'Resolve blocker & resume'
-                          : 'Start session',
+                  Section(
+                    'INPUT',
+                    child: SelectableText(
+                      s.text('input').isEmpty
+                          ? 'No reference material attached.'
+                          : s.text('input'),
                     ),
                   ),
+                ] else ...[
+                  Section(
+                    'WHY',
+                    child: Text(
+                      why,
+                      style: const TextStyle(fontSize: 17, height: 1.6),
+                    ),
+                  ),
+                  Section(
+                    'INPUT',
+                    child: SelectableText(
+                      s.text('input').isEmpty
+                          ? 'No reference material attached.'
+                          : s.text('input'),
+                    ),
+                  ),
+                  Section(
+                    'RELATED KNOWLEDGE',
+                    child: Panel(
+                      child: loadingKnowledge
+                          ? const Text('Searching local Knowledge…')
+                          : relatedKnowledge.isEmpty
+                          ? const Text(
+                              'No related local Knowledge found for this session objective.',
+                            )
+                          : Column(
+                              children: [
+                                for (final hit in relatedKnowledge)
+                                  ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: const Icon(
+                                      Icons.menu_book_outlined,
+                                    ),
+                                    title: Text(hit.item.title),
+                                    subtitle: Text(
+                                      '${hit.snippet}\n${hit.relationship}${hit.sectionTitle == null ? '' : ' · ${hit.sectionTitle} @ ${hit.startOffset ?? 0}'}',
+                                    ),
+                                    onTap: () => openEvidence(
+                                      context,
+                                      widget.app,
+                                      hit.item,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                    ),
+                  ),
+                  Section(
+                    "TODAY’S TARGET",
+                    child: Panel(
+                      child: Text(
+                        s.text('target').isEmpty
+                            ? 'Produce one concrete result worth recording.'
+                            : s.text('target'),
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                  ),
+                ],
                 if (s.status.terminal ||
                     s.status == SessionStatus.inProgress ||
                     s.status == SessionStatus.blocked) ...[
@@ -315,24 +434,6 @@ class _SessionReviewDialogState extends State<SessionReviewDialog> {
           children: [
             Text(widget.session.title),
             const SizedBox(height: 20),
-            DropdownButtonFormField<SessionStatus>(
-              initialValue: status,
-              decoration: const InputDecoration(labelText: 'Status'),
-              items:
-                  [
-                        SessionStatus.done,
-                        SessionStatus.inProgress,
-                        SessionStatus.blocked,
-                        SessionStatus.skipped,
-                        SessionStatus.cancelled,
-                      ]
-                      .where((s) => widget.session.status.canTransitionTo(s))
-                      .map(
-                        (s) => DropdownMenuItem(value: s, child: Text(s.label)),
-                      )
-                      .toList(),
-              onChanged: saving ? null : (v) => setState(() => status = v!),
-            ),
             field(output, 'Actual output · evidence of useful work'),
             field(learning, 'What did I learn?'),
             field(next, 'Next action'),
@@ -344,11 +445,44 @@ class _SessionReviewDialogState extends State<SessionReviewDialog> {
                   'Record the blocker or a concrete next action to make restarting easier.',
                 ),
               ),
-            field(link, 'Output link / local file path', lines: 1),
-            field(
-              minutes,
-              'Correct total focused minutes (optional)',
-              lines: 1,
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text('Advanced'),
+              subtitle: const Text('Status, evidence link and time correction'),
+              children: [
+                DropdownButtonFormField<SessionStatus>(
+                  initialValue: status,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items:
+                      [
+                            SessionStatus.done,
+                            SessionStatus.inProgress,
+                            SessionStatus.blocked,
+                            SessionStatus.skipped,
+                            SessionStatus.cancelled,
+                          ]
+                          .where(
+                            (candidate) => widget.session.status
+                                .canTransitionTo(candidate),
+                          )
+                          .map(
+                            (candidate) => DropdownMenuItem(
+                              value: candidate,
+                              child: Text(candidate.label),
+                            ),
+                          )
+                          .toList(),
+                  onChanged: saving
+                      ? null
+                      : (value) => setState(() => status = value!),
+                ),
+                field(link, 'Evidence link / local file path', lines: 1),
+                field(
+                  minutes,
+                  'Correct total focused minutes (optional)',
+                  lines: 1,
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             const Text(
@@ -374,7 +508,7 @@ class _SessionReviewDialogState extends State<SessionReviewDialog> {
       ),
       FilledButton(
         onPressed: saving ? null : save,
-        child: Text(saving ? 'Saving…' : 'Save review'),
+        child: Text(saving ? 'Saving…' : 'Finish & Add Evidence'),
       ),
     ],
   );

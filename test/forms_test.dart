@@ -127,7 +127,7 @@ void main() {
     expect(find.text('Make room for meaningful work'), findsOneWidget);
     expect(tester.takeException(), isNull);
     for (final label in [
-      'Mission',
+      'Missions',
       'Strategy',
       'Projects',
       'Knowledge',
@@ -150,7 +150,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(PersonalOsApp(app: app));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Mission').first);
+    await tester.tap(find.text('Missions').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Manage existing goals & project links'));
     await tester.pumpAndSettle();

@@ -1,13 +1,12 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../application/app_controller.dart';
-import 'screens/today_screen.dart';
-import 'screens/direction_screens.dart';
-import 'screens/library_screen.dart';
+import 'screens/dashboard_screen.dart';
 import 'screens/inbox_screen.dart';
-import 'screens/strategy_screens.dart';
-
+import 'screens/modern_screens.dart';
+import 'screens/today_overview_screen.dart';
 import 'screens/utilities.dart';
 
 class AppShell extends StatefulWidget {
@@ -22,6 +21,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int selected = 0;
   Timer? clock;
+
   @override
   void initState() {
     super.initState();
@@ -42,172 +42,254 @@ class _AppShellState extends State<AppShell> {
     super.dispose();
   }
 
+  void go(int index) => setState(() => selected = index);
+
   @override
   Widget build(BuildContext context) {
     final app = widget.app;
     final pages = [
-      TodayScreen(app),
-      MissionScreen(app),
-      StrategyScreen(app),
-      ProjectsScreen(app),
-      LibraryScreen(app),
-      AdaptiveReviewScreen(app),
+      DashboardScreen(
+        app,
+        onToday: () => go(1),
+        onMission: () => go(2),
+        onProjects: () => go(3),
+        onKnowledge: () => go(5),
+      ),
+      TodayOverviewScreen(app),
+      MissionOverviewScreen(app),
+      ProjectsOverviewScreen(app),
+      StrategyOverviewScreen(app),
+      KnowledgeOverviewScreen(app),
+      ReviewOverviewScreen(app),
       InboxScreen(app),
-      SettingsScreen(app, widget.databasePath, onRestore: widget.onRestore),
+      SettingsOverviewScreen(
+        app,
+        widget.databasePath,
+        onRestore: widget.onRestore,
+      ),
     ];
-    return CallbackShortcuts(
-      bindings: const {},
-      child: Focus(
-        autofocus: true,
-        child: Scaffold(
-          body: SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 760;
-                return Row(
-                  children: [
-                    Container(
-                      width: compact ? 76 : 232,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        border: Border(
-                          right: BorderSide(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.outlineVariant.withValues(alpha: .5),
-                          ),
+    return Scaffold(
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 820;
+            return Row(
+              children: [
+                _sidebar(compact),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _topBar(compact),
+                      if (app.error != null)
+                        MaterialBanner(
+                          content: Text(app.error!),
+                          actions: [
+                            TextButton(
+                              onPressed: () => app.refresh(),
+                              child: const Text('Retry'),
+                            ),
+                          ],
                         ),
+                      Expanded(
+                        child: IndexedStack(index: selected, children: pages),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              compact ? 22 : 24,
-                              32,
-                              16,
-                              8,
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.blur_on,
-                                  color: Theme.of(context).colorScheme.primary,
-                                  size: 28,
-                                ),
-                                if (!compact) ...[
-                                  const SizedBox(width: 10),
-                                  const Flexible(
-                                    child: Text(
-                                      'PERSONAL OS',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: .7,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          if (!compact)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(24, 4, 24, 32),
-                              child: Text(
-                                app.workspace.settings['demo'] == 'true'
-                                    ? 'DEMO WORKSPACE · LOCAL'
-                                    : 'YOUR WORKSPACE · LOCAL',
-                                style: const TextStyle(
-                                  fontSize: 9,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 12),
-                          Expanded(
-                            child: ListView(
-                              children: [
-                                for (var i = 0; i < 6; i++)
-                                  _nav(
-                                    i,
-                                    const [
-                                      'Today',
-                                      'Mission',
-                                      'Strategy',
-                                      'Projects',
-                                      'Knowledge',
-                                      'Review',
-                                    ][i],
-                                    const [
-                                      Icons.grid_view_rounded,
-                                      Icons.flag_outlined,
-                                      Icons.account_tree_outlined,
-                                      Icons.folder_outlined,
-                                      Icons.auto_stories_outlined,
-                                      Icons.view_week_outlined,
-                                    ][i],
-                                    compact,
-                                  ),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Divider(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.outlineVariant,
-                            ),
-                          ),
-                          _utility(
-                            'Search',
-                            Icons.search,
-                            compact,
-                            () => showSearchPalette(context, app),
-                          ),
-                          _nav(6, 'Inbox', Icons.inbox_outlined, compact),
-                          _nav(7, 'Settings', Icons.tune, compact),
-                          if (!compact)
-                            const Padding(
-                              padding: EdgeInsets.all(24),
-                              child: Text(
-                                'Intention → Evidence',
-                                style: TextStyle(fontSize: 11),
-                              ),
-                            ),
-                          const SizedBox(height: 16),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          if (app.error != null)
-                            MaterialBanner(
-                              content: Text(app.error!),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => app.refresh(),
-                                  child: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          Expanded(
-                            child: IndexedStack(
-                              index: selected,
-                              children: pages,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _sidebar(bool compact) {
+    final scheme = Theme.of(context).colorScheme;
+    const primary = [
+      (0, 'Dashboard', Icons.space_dashboard_outlined),
+      (2, 'Missions', Icons.flag_outlined),
+      (3, 'Projects', Icons.folder_outlined),
+      (4, 'Strategy', Icons.account_tree_outlined),
+      (5, 'Knowledge', Icons.auto_stories_outlined),
+      (6, 'Review', Icons.fact_check_outlined),
+    ];
+    return Container(
+      width: compact ? 78 : 220,
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        border: Border(
+          right: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: .55),
           ),
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(compact ? 22 : 20, 24, 14, 22),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xff3978e6), Color(0xff6b5fce)],
+                    ),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: const Icon(
+                    Icons.blur_on,
+                    color: Colors.white,
+                    size: 21,
+                  ),
+                ),
+                if (!compact) ...[
+                  const SizedBox(width: 11),
+                  const Expanded(
+                    child: Text(
+                      'PERSONAL OS',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .65,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (!compact)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
+              child: Text(
+                'MISSION CONTROL',
+                style: TextStyle(fontSize: 9, letterSpacing: 1.25),
+              ),
+            ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              children: [
+                for (final item in primary)
+                  _nav(item.$1, item.$2, item.$3, compact),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Divider(color: scheme.outlineVariant),
+          ),
+          _nav(7, 'Inbox', Icons.inbox_outlined, compact),
+          _nav(8, 'Settings', Icons.settings_outlined, compact),
+          if (!compact)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 14, 20, 22),
+              child: Text(
+                'Intention → Evidence',
+                style: TextStyle(fontSize: 11),
+              ),
+            )
+          else
+            const SizedBox(height: 14),
+        ],
+      ),
+    );
+  }
+
+  Widget _topBar(bool compact) {
+    final scheme = Theme.of(context).colorScheme;
+    final name = widget.app.workspace.settings['name']?.trim() ?? '';
+    final unread = widget.app.workspace.inbox
+        .where((item) => !item.processed)
+        .length;
+    return Container(
+      height: 68,
+      padding: EdgeInsets.symmetric(horizontal: compact ? 14 : 24),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: .45),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(11),
+                onTap: () => showSearchPalette(context, widget.app),
+                child: Container(
+                  height: 42,
+                  padding: const EdgeInsets.symmetric(horizontal: 13),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    borderRadius: BorderRadius.circular(11),
+                    border: Border.all(
+                      color: scheme.outlineVariant.withValues(alpha: .7),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search, size: 20),
+                      const SizedBox(width: 10),
+                      if (!compact)
+                        Expanded(
+                          child: Text(
+                            'Search missions, projects and knowledge',
+                            style: TextStyle(color: scheme.onSurfaceVariant),
+                          ),
+                        )
+                      else
+                        const Spacer(),
+                      if (!compact)
+                        Text(
+                          'Ctrl K',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Badge(
+            isLabelVisible: unread > 0,
+            label: Text('$unread'),
+            child: IconButton(
+              tooltip: 'Inbox',
+              onPressed: () => go(7),
+              icon: const Icon(Icons.notifications_none),
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: () => go(8),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: scheme.primaryContainer,
+              child: Text(
+                name.isEmpty ? 'ME' : name.substring(0, 1).toUpperCase(),
+                style: TextStyle(
+                  color: scheme.onPrimaryContainer,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -224,14 +306,14 @@ class _AppShellState extends State<AppShell> {
           color: selected == index
               ? Theme.of(context).colorScheme.primary.withValues(alpha: .1)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(11),
           child: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () => setState(() => selected = index),
+            borderRadius: BorderRadius.circular(11),
+            onTap: () => go(index),
             child: Padding(
               padding: EdgeInsets.symmetric(
-                horizontal: compact ? 17 : 14,
-                vertical: 14,
+                horizontal: compact ? 17 : 13,
+                vertical: 12,
               ),
               child: Row(
                 children: [
@@ -243,22 +325,22 @@ class _AppShellState extends State<AppShell> {
                         : Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   if (!compact) ...[
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 13),
                     Text(
                       label,
                       style: TextStyle(
                         fontWeight: selected == index
-                            ? FontWeight.w600
-                            : FontWeight.w400,
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                       ),
                     ),
-                    if (index == 6 &&
+                    if (index == 7 &&
                         widget.app.workspace.inbox.any(
-                          (i) => !i.processed,
+                          (item) => !item.processed,
                         )) ...[
                       const Spacer(),
                       Text(
-                        '${widget.app.workspace.inbox.where((i) => !i.processed).length}',
+                        '${widget.app.workspace.inbox.where((item) => !item.processed).length}',
                         style: const TextStyle(fontSize: 11),
                       ),
                     ],
@@ -267,34 +349,6 @@ class _AppShellState extends State<AppShell> {
               ),
             ),
           ),
-        ),
-      ),
-    ),
-  );
-  Widget _utility(
-    String label,
-    IconData icon,
-    bool compact,
-    VoidCallback action,
-  ) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 10),
-    child: Tooltip(
-      message: '$label · Ctrl/Cmd+K',
-      child: TextButton(
-        onPressed: action,
-        child: Row(
-          mainAxisAlignment: compact
-              ? MainAxisAlignment.center
-              : MainAxisAlignment.start,
-          children: [
-            Icon(icon, size: 20),
-            if (!compact) ...[
-              const SizedBox(width: 14),
-              Text(label),
-              const Spacer(),
-              const Text('⌘ K', style: TextStyle(fontSize: 11)),
-            ],
-          ],
         ),
       ),
     ),

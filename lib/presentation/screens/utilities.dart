@@ -377,6 +377,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Builder(
               builder: (context) {
                 final boundary = widget.app.intelligenceContext;
+                final usage = widget.app.workspace.usageSummary(DateTime.now());
+                final searchLatency = usage.averageSearchMs == null
+                    ? 'not measured'
+                    : '${usage.averageSearchMs!.toStringAsFixed(0)} ms average across ${usage.searches} searches';
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -406,7 +410,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Latest measured startup: ${widget.app.workspace.settings['last_startup_ms'] ?? 'not measured'} ms (target < 3000 ms). Knowledge search latency is recorded locally for retrieval QA.',
+                      'Latest measured startup: ${widget.app.workspace.settings['last_startup_ms'] ?? 'not measured'} ms (target < 3000 ms). Knowledge search latency: $searchLatency.',
                     ),
                   ],
                 );

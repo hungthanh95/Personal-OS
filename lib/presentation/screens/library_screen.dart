@@ -172,6 +172,200 @@ class LibraryScreen extends StatelessWidget {
   }
 }
 
+class KnowledgeAdvancedScreen extends StatelessWidget {
+  final AppController app;
+  const KnowledgeAdvancedScreen(this.app, {super.key});
+
+  @override
+  Widget build(BuildContext context) => DefaultTabController(
+    length: 4,
+    child: Scaffold(
+      appBar: AppBar(
+        title: const Text('Advanced knowledge'),
+        bottom: const TabBar(
+          isScrollable: true,
+          tabs: [
+            Tab(text: 'Concept Graph'),
+            Tab(text: 'Semantic Search'),
+            Tab(text: 'Duplicates'),
+            Tab(text: 'Freshness'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        children: [
+          _conceptGraph(context),
+          _semanticSearch(context),
+          _duplicates(context),
+          _freshness(context),
+        ],
+      ),
+    ),
+  );
+
+  Widget _conceptGraph(BuildContext context) {
+    final concepts = app.workspace.records('concepts').toList()
+      ..sort((a, b) => a.title.compareTo(b.title));
+    return ListView(
+      padding: const EdgeInsets.all(28),
+      children: [
+        const PageHeading(
+          'Concept Graph',
+          'Browse the concepts connecting your local knowledge.',
+        ),
+        if (concepts.isEmpty)
+          const Panel(
+            child: Text(
+              'No concepts yet. Add tags to knowledge items to build local concept relationships.',
+            ),
+          )
+        else
+          Panel(
+            child: Column(
+              children: [
+                for (final concept in concepts)
+                  ExpansionTile(
+                    leading: const Icon(Icons.hub_outlined),
+                    title: Text(concept.title),
+                    subtitle: Text(
+                      '${app.workspace.records('knowledge_concepts').where((link) => link.ref('concept_id') == concept.id).length} linked items',
+                    ),
+                    children: [
+                      for (final item in app.workspace.knowledge.where(
+                        (item) => app.workspace
+                            .records('knowledge_concepts')
+                            .any(
+                              (link) =>
+                                  link.ref('concept_id') == concept.id &&
+                                  link.ref('knowledge_id') == item.id,
+                            ),
+                      ))
+                        ListTile(
+                          title: Text(item.title),
+                          onTap: () => openEvidence(context, app, item),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _semanticSearch(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(28),
+    children: [
+      const PageHeading(
+        'Semantic Search',
+        'Retrieve local notes by meaning and relationship, not only title.',
+      ),
+      Panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Search results include a relevance explanation, source section and local retrieval latency.',
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => KnowledgeSearchDialog(app),
+              ),
+              icon: const Icon(Icons.manage_search_outlined),
+              label: const Text('Start semantic search'),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+
+  Widget _duplicates(BuildContext context) {
+    final groups = duplicateKnowledgeGroups(app.workspace.knowledge);
+    return ListView(
+      padding: const EdgeInsets.all(28),
+      children: [
+        const PageHeading(
+          'Duplicates',
+          'Review matching checksums and normalized titles before merging.',
+        ),
+        if (groups.isEmpty)
+          const Panel(child: Text('No duplicate groups detected.'))
+        else
+          Panel(
+            child: Column(
+              children: [
+                for (final group in groups)
+                  ExpansionTile(
+                    leading: const Icon(Icons.content_copy_outlined),
+                    title: Text('${group.length} possible duplicates'),
+                    children: [
+                      for (final item in group)
+                        ListTile(
+                          title: Text(item.title),
+                          subtitle: Text(dayLabel(item.createdAt)),
+                          onTap: () => openEvidence(context, app, item),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _freshness(BuildContext context) {
+    final items = app.workspace.knowledge.toList()
+      ..sort((a, b) {
+        final aNeedsReview = knowledgeFreshness(
+          app.workspace,
+          a,
+        ).startsWith('Review');
+        final bNeedsReview = knowledgeFreshness(
+          app.workspace,
+          b,
+        ).startsWith('Review');
+        if (aNeedsReview != bNeedsReview) return aNeedsReview ? -1 : 1;
+        return b.createdAt.compareTo(a.createdAt);
+      });
+    return ListView(
+      padding: const EdgeInsets.all(28),
+      children: [
+        const PageHeading(
+          'Freshness',
+          'See which references need review based on their concept windows.',
+        ),
+        if (items.isEmpty)
+          const Panel(child: Text('No knowledge items to assess yet.'))
+        else
+          Panel(
+            child: Column(
+              children: [
+                for (final item in items)
+                  ListTile(
+                    leading: Icon(
+                      knowledgeFreshness(
+                            app.workspace,
+                            item,
+                          ).startsWith('Review')
+                          ? Icons.warning_amber_outlined
+                          : Icons.check_circle_outline,
+                    ),
+                    title: Text(item.title),
+                    subtitle: Text(knowledgeFreshness(app.workspace, item)),
+                    onTap: () => openEvidence(context, app, item),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 List<List<KnowledgeItem>> duplicateKnowledgeGroups(List<KnowledgeItem> items) {
   final groups = <String, List<KnowledgeItem>>{};
   for (final item in items) {
