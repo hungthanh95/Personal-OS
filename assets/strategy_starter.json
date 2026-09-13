@@ -1,0 +1,101 @@
+{
+  "visions": [
+    {
+      "id": "starter-vision",
+      "title": "Financial Independence by 2043",
+      "description": "Build career capability, ownership and capital.",
+      "target_date": "2043-12-31",
+      "created_at": 1789171200000
+    }
+  ],
+  "strategies": [
+    {
+      "id": "starter-career",
+      "vision_id": "starter-vision",
+      "title": "Higher market value and income",
+      "engine": "Career",
+      "allocation": "Primary",
+      "created_at": 1789171200000
+    },
+    {
+      "id": "starter-ownership",
+      "vision_id": "starter-vision",
+      "title": "Build products and intellectual property",
+      "engine": "Ownership",
+      "allocation": "Maintenance",
+      "created_at": 1789171200000
+    },
+    {
+      "id": "starter-capital",
+      "vision_id": "starter-vision",
+      "title": "Save and compound capital",
+      "engine": "Capital",
+      "allocation": "Continuous",
+      "created_at": 1789171200000
+    }
+  ],
+  "goals": [
+    {
+      "id": "starter-goal",
+      "title": "Job Switch — Higher Salary",
+      "why": "Develop evidence of capability for a higher-paying role.",
+      "created_at": 1789171200000
+    }
+  ],
+  "missions": [
+    {
+      "id": "starter-mission",
+      "strategy_id": "starter-career",
+      "goal_id": "starter-goal",
+      "title": "Job Switch — Higher Salary",
+      "success_criteria": "Define your target role, salary and measurable acceptance criteria.",
+      "status": "Active",
+      "priority": 0,
+      "created_at": 1789171200000
+    }
+  ],
+  "skills": [
+    {
+      "id": "starter-skill-0",
+      "mission_id": "starter-mission",
+      "title": "Modern C++",
+      "created_at": 1789171200000
+    },
+    {
+      "id": "starter-skill-1",
+      "mission_id": "starter-mission",
+      "title": "Linux / OS / Networking",
+      "created_at": 1789171200000
+    },
+    {
+      "id": "starter-skill-2",
+      "mission_id": "starter-mission",
+      "title": "Systems Programming",
+      "created_at": 1789171200000
+    },
+    {
+      "id": "starter-skill-3",
+      "mission_id": "starter-mission",
+      "title": "Automotive / AUTOSAR / QNX",
+      "created_at": 1789171200000
+    },
+    {
+      "id": "starter-skill-4",
+      "mission_id": "starter-mission",
+      "title": "English",
+      "created_at": 1789171200000
+    },
+    {
+      "id": "starter-skill-5",
+      "mission_id": "starter-mission",
+      "title": "Interview",
+      "created_at": 1789171200000
+    },
+    {
+      "id": "starter-skill-6",
+      "mission_id": "starter-mission",
+      "title": "Job Pipeline",
+      "created_at": 1789171200000
+    }
+  ]
+}
