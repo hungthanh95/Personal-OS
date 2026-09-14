@@ -1,10 +1,10 @@
 # Personal OS 0.4 — Hướng dẫn sử dụng
 
-Cập nhật: 13/09/2026. Tên nút được giữ bằng tiếng Anh để khớp giao diện.
+Cập nhật: 14/09/2026 cho Architecture V4.1. Tên nút được giữ bằng tiếng Anh để khớp giao diện.
 
 ## 1. Cài đặt và dữ liệu
 
-Giải nén `dist/PersonalOS-0.4.0-windows-x64.zip` vào một thư mục, giữ nguyên executable, DLL và thư mục `data`, rồi mở `personal_os.exe`. Ứng dụng chạy offline và lưu SQLite trong Application Support của tài khoản Windows. Đường dẫn chính xác hiển thị ở **Settings → Local database**.
+Giải nén `dist/PersonalOS-0.4.0-v4.1-windows-x64.zip` vào một thư mục, giữ nguyên executable, DLL và thư mục `data`, rồi mở `personal_os.exe`. Ứng dụng chạy offline và lưu SQLite trong Application Support của tài khoản Windows. Đường dẫn chính xác hiển thị ở **Settings → Local database**.
 
 Lần mở đầu có Quick start và dữ liệu mẫu mang nhãn **DEMO WORKSPACE · LOCAL**. Bạn có thể thử các luồng trước khi vào **Settings → Start an empty workspace**. Thao tác này xóa cả dữ liệu bạn đã thêm vào workspace demo, vì vậy hãy export trước nếu cần giữ.
 
@@ -31,7 +31,9 @@ Phím tắt: `Ctrl+K` mở tìm kiếm toàn app, `Ctrl+N` mở quick capture, `
 4. Vào **Projects**, tạo Project thuộc Initiative hoặc Outcome.
 5. Thêm Task hoặc Session vào Project.
 
-Sau khi chọn vault, app tạo source note riêng cho Mission, Project và Task. Dùng **Open note** tại màn hình tương ứng để sửa nội dung trong Obsidian. Lần scan tiếp theo cập nhật projection; đổi tên hoặc di chuyển note vẫn giữ liên kết bằng ID. Nếu trùng ID, YAML lỗi hoặc tham chiếu không tồn tại, app giữ dữ liệu đã biết và báo lỗi thay vì nhận nhầm note.
+Sau khi chọn vault, app tạo source note riêng cho Mission, Project và Task. Dùng **Open note** tại màn hình tương ứng để sửa nội dung trong Obsidian. Lần scan tiếp theo cập nhật projection; đổi tên hoặc di chuyển note vẫn giữ liên kết bằng ID. Nếu trùng ID, YAML lỗi hoặc tham chiếu không tồn tại, app không nhận nhầm note và giữ projection hợp lệ gần nhất. Lỗi của Session hiện trên trang chi tiết; lỗi source của Mission/Project/Task hiện được lưu trong source mapping và có trong portable JSON để chẩn đoán.
+
+Khi sửa trong app, writer chỉ patch frontmatter và các section mà app quản lý; section hoặc YAML tùy chỉnh của người dùng được giữ lại. Task chỉ thành Done khi note Task có trạng thái Done; một Session hoàn thành không tự đánh dấu Task Done.
 
 Mở **Strategy map** để lọc theo Horizon và đi từ Strategy → Mission → Outcome → Initiative → Project → Task/Session/Output. Chọn node để xem chi tiết. Why Path của session giải thích đường nối về mission và vision.
 
@@ -40,7 +42,7 @@ Mở **Strategy map** để lọc theo Horizon và đi từ Strategy → Mission
 1. Vào **Today → Plan session**, chọn Project hoặc Goal, giờ, thời lượng, priority, WHY, INPUT và target.
 2. Vào **Settings → Obsidian workspace**, chọn vault. App tạo một note cho mỗi session mà không ghi đè note có sẵn.
 3. Mở session rồi chọn **Open note**. Làm việc và ghi Output/Learning/Next Action trong Obsidian.
-4. Sau giờ kết thúc, đặt `status: done` và ghi Output cụ thể. App tự kiểm tra khi đang mở, khi quay lại app hoặc khi bạn chọn **Check result**.
+4. Sau giờ kết thúc, đặt `status: done` và ghi Output cụ thể. App tự kiểm tra khi đang mở, khi quay lại app/máy thức dậy hoặc khi bạn chọn **Check result**.
 
 | Trạng thái | Cách dùng |
 | --- | --- |
@@ -49,11 +51,13 @@ Mở **Strategy map** để lọc theo Horizon và đi từ Strategy → Mission
 | Skipped | Chủ động bỏ qua |
 | Cancelled | Hủy; không tính vào mẫu số completion |
 
-`planned_minutes` chỉ là thời lượng dành trên lịch, không phải thời gian đã học. App không có Start/Pause/Stop và không đo elapsed time. Nếu thiếu Done hoặc Output, session tiếp tục ở trạng thái chờ; output bổ sung muộn sẽ được tính lại vào đúng occurrence ban đầu.
+`planned_minutes` chỉ là thời lượng dành trên lịch, không phải thời gian đã học. App không có Start/Pause/Resume/Stop và không đo elapsed time. Nếu thiếu Done hoặc Output, session tiếp tục ở trạng thái chờ; output bổ sung muộn sẽ được tính lại vào đúng occurrence ban đầu.
+
+Output hợp lệ phải có nội dung thực trong `## Output` hoặc liên kết tới một kết quả tồn tại trong vault. Heading rỗng, placeholder và wikilink không tìm thấy đích chưa đủ điều kiện. “Đang trong khung lịch”, “Awaiting result” và “Missing output” là trạng thái hiển thị suy ra; chúng không khẳng định người dùng đang học.
 
 ## 5. Lịch lặp và kế hoạch tuần
 
-Trong **Today → Recurring plan**, tạo Session template rồi Recurring schedule. Weekday dùng ISO `1..7` tương ứng thứ Hai đến Chủ nhật. App tự materialize 21 ngày; **Generate 12 weeks** mở rộng đến 93 ngày và không tạo trùng occurrence. Streak được tính theo các occurrence Done liên tiếp của từng lịch; ngày không có lịch không làm đứt streak, Skipped làm đứt và Cancelled bị loại.
+Trong **Today → Recurring plan**, tạo Session template rồi Recurring schedule. Weekday dùng ISO `1..7` tương ứng thứ Hai đến Chủ nhật. App tự materialize 21 ngày; **Generate 12 weeks** mở rộng đến 93 ngày và không tạo trùng occurrence. Streak được tính theo các occurrence Done liên tiếp của từng lịch; ngày không có lịch không làm đứt streak, Skipped làm đứt và Cancelled bị loại. Một occurrence đang chờ kết quả làm phần tiếp theo của streak chưa thể xác định; output bổ sung muộn được tính tại occurrence gốc.
 
 Trong **Review**, chọn Mission rồi **Create plan preview**. Hệ thống local đề xuất ưu tiên dựa trên gap/evidence, tạo draft các session thứ Hai–thứ Sáu. Kiểm tra lý do, evidence, risk và confidence; chọn Accept/Reject, sau đó approve và apply change set. Không có thay đổi lịch âm thầm.
 
@@ -134,9 +138,9 @@ Quick capture chỉ cần title/kind. Trong Inbox, chuyển item chưa xử lý 
 
 ## 12. Backup, restore, export và xóa
 
-- **Export workspace backup** tạo ZIP gồm toàn bộ Obsidian vault và SQLite snapshot nhất quán; đây là bản sao lưu đầy đủ trong giai đoạn chuyển tiếp.
+- **Export workspace backup** tạo ZIP gồm toàn bộ Obsidian vault và SQLite snapshot nhất quán; cần cấu hình vault trước và đây là bản sao lưu đầy đủ trong giai đoạn chuyển tiếp.
 - **Export database backup** chỉ tạo SQLite snapshot để dùng với luồng restore hiện tại.
-- **Restore from backup** kiểm tra header, migrate bản staging, tạo safety snapshot rồi mới thay database đang đóng.
+- **Restore from backup** hiện chỉ nhận file SQLite từ **Export database backup**; nó kiểm tra header, migrate bản staging, tạo safety snapshot rồi mới thay database đang đóng. Workspace ZIP là gói lưu trữ đầy đủ nhưng chưa có nút restore trực tiếp.
 - **Export portable JSON** xuất toàn bộ bảng cùng schema version/time để kiểm tra hoặc di chuyển dữ liệu.
 - **Personal data controls** xóa riêng Career, Knowledge hoặc Ownership/Capital sau xác nhận. Xóa Knowledge cũng dọn bản managed source nếu đường dẫn nằm đúng vùng app quản lý.
 
@@ -162,7 +166,7 @@ Database chưa dùng application-level encryption. Hãy bảo vệ tài khoản 
 - [ ] Import Markdown/PDF/DOCX; thử DOC cũ, file scan, import trùng, search context và open source.
 - [ ] Nhập JD, application, interview/question; kiểm tra clusters, funnel và priority conversion.
 - [ ] Ghi customer discovery/revenue/distribution/capital/net worth.
-- [ ] Export SQLite/JSON; thử restore và xóa từng category trên dữ liệu thử.
+- [ ] Export workspace ZIP, SQLite và JSON; thử restore SQLite và xóa từng category trên dữ liệu thử.
 - [ ] Kiểm tra keyboard-only, light/dark, text scale, cửa sổ hẹp và thông báo lỗi.
 
 Mẫu ghi lỗi:

@@ -32,11 +32,15 @@ class PageHeading extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 6),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                const SizedBox(height: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: Text(
+                    subtitle,
+                    style: TextStyle(
+                      height: 1.5,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ],
@@ -62,7 +66,7 @@ class Panel extends StatelessWidget {
     type: MaterialType.card,
     color: Theme.of(context).colorScheme.surface,
     elevation: Theme.of(context).brightness == Brightness.light ? 1 : 0,
-    shadowColor: const Color(0x1817345c),
+    shadowColor: const Color(0x1417243b),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
       side: BorderSide(
@@ -80,14 +84,32 @@ class SectionLabel extends StatelessWidget {
   final String label;
   const SectionLabel(this.label, {super.key});
   @override
-  Widget build(BuildContext context) => Text(
-    label.toUpperCase(),
-    style: TextStyle(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-      fontSize: 11,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 1.05,
-    ),
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 4,
+        height: 14,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Flexible(
+        child: Text(
+          label.toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.05,
+          ),
+        ),
+      ),
+    ],
   );
 }
 
@@ -204,9 +226,22 @@ class EmptyState extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) => Panel(
+    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
     child: Column(
       children: [
-        Icon(icon, size: 32, color: Theme.of(context).colorScheme.primary),
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Icon(
+            icon,
+            size: 27,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
         const SizedBox(height: 16),
         Text(title, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),

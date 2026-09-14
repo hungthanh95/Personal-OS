@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../application/app_controller.dart';
 import '../../domain/models.dart';
 import '../dashboard_data.dart';
+import '../theme.dart';
 import '../widgets/common.dart';
 import 'session_screen.dart';
 
@@ -187,98 +188,185 @@ class DashboardScreen extends StatelessWidget {
       r'paused|blocked|risk|attention',
       caseSensitive: false,
     ).hasMatch(status);
-    return Container(
-      padding: const EdgeInsets.all(28),
+    final copy = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: scheme.surface.withValues(alpha: .68),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: scheme.primary.withValues(alpha: .16)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.flag_rounded, size: 15, color: scheme.primary),
+              const SizedBox(width: 7),
+              Text(
+                'ACTIVE MISSION',
+                style: TextStyle(
+                  color: scheme.primary,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.15,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(mission.title, style: Theme.of(context).textTheme.displaySmall),
+        if (subtitle.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Text(
+              subtitle,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.55,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              healthy ? Icons.check_circle_outline : Icons.error_outline,
+              size: 18,
+              color: healthy ? PersonalColors.success : PersonalColors.warning,
+            ),
+            const SizedBox(width: 8),
+            Text(status, style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(width: 12),
+            SizedBox(
+              height: 18,
+              child: VerticalDivider(color: scheme.outlineVariant, width: 1),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              execution == null
+                  ? 'Execution not measured'
+                  : '${(execution * 100).round()}% execution',
+              style: TextStyle(color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+        const SizedBox(height: 22),
+        OutlinedButton.icon(
+          onPressed: onMission,
+          icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+          label: const Text('Open mission'),
+        ),
+      ],
+    );
+    final progressCard = Container(
+      width: 170,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        color: scheme.surface.withValues(alpha: .7),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: scheme.primary.withValues(alpha: .14)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 96,
+            height: 96,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox.expand(
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 8,
+                    strokeCap: StrokeCap.round,
+                  ),
+                ),
+                Text(
+                  '${(progress * 100).round()}%',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Outcome progress',
+            style: TextStyle(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
         gradient: LinearGradient(
           colors: [
-            scheme.primaryContainer.withValues(alpha: .82),
-            scheme.secondaryContainer.withValues(alpha: .48),
+            scheme.primaryContainer.withValues(alpha: .9),
+            scheme.secondaryContainer.withValues(alpha: .55),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        border: Border.all(color: scheme.primary.withValues(alpha: .12)),
+        border: Border.all(color: scheme.primary.withValues(alpha: .14)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Text(
-            'ACTIVE MISSION',
-            style: TextStyle(
-              color: scheme.primary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.25,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(mission.title, style: Theme.of(context).textTheme.displaySmall),
-          if (subtitle.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 680),
-              child: Text(
-                subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 15,
-                  height: 1.45,
-                  color: scheme.onSurfaceVariant,
-                ),
+          Positioned(
+            right: -72,
+            top: -92,
+            child: Container(
+              width: 230,
+              height: 230,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: scheme.primary.withValues(alpha: .055),
               ),
             ),
-          ],
-          const SizedBox(height: 28),
-          const Text('Outcome progress'),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Text(
-                '${(progress * 100).round()}%',
-                style: const TextStyle(
-                  fontSize: 25,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 8,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              const SizedBox(width: 16),
-              StatusPill(
-                label: status,
-                color: healthy
-                    ? const Color(0xff26956a)
-                    : const Color(0xffc47b17),
-              ),
-            ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            execution == null
-                ? 'Task execution · Not measured'
-                : 'Task execution · ${(execution * 100).round()}%',
-          ),
-          if (execution != null) ...[
-            const SizedBox(height: 6),
-            LinearProgressIndicator(
-              value: execution,
-              minHeight: 6,
-              borderRadius: BorderRadius.circular(6),
+          Padding(
+            padding: const EdgeInsets.all(28),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 620) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      copy,
+                      const SizedBox(height: 24),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: progressCard,
+                      ),
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(child: copy),
+                    const SizedBox(width: 28),
+                    progressCard,
+                  ],
+                );
+              },
             ),
-          ],
-          const SizedBox(height: 20),
-          OutlinedButton.icon(
-            onPressed: onMission,
-            icon: const Icon(Icons.arrow_forward, size: 17),
-            label: const Text('Open mission'),
           ),
         ],
       ),
@@ -287,7 +375,11 @@ class DashboardScreen extends StatelessWidget {
 
   Widget _engineSummary(BuildContext context, StrategyRecord? mission) {
     final items = engineSummaries(app.workspace, mission);
-    const colors = [Color(0xff3978e6), Color(0xff815ac7), Color(0xffc58a19)];
+    const colors = [
+      PersonalColors.primary,
+      PersonalColors.ownership,
+      PersonalColors.capital,
+    ];
     const icons = [
       Icons.work_outline,
       Icons.widgets_outlined,
