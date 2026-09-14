@@ -2,14 +2,14 @@
 
 ## Runtime shape
 
-Personal OS is a single-user Flutter desktop app with an offline-first SQLite database. The production Windows build contains no account, network provider or cloud synchronization path.
+Personal OS is a single-user Flutter desktop app. Obsidian Markdown is the canonical source for migrated Knowledge, Mission, Project, Task and scheduled-session results; SQLite is their rebuildable projection and remains the transitional store for domains not migrated yet. The production Windows build contains no account, network provider or cloud synchronization path.
 
 | Layer | Responsibility |
 | --- | --- |
 | `lib/domain` | Immutable entities, status transitions, metrics, readiness, career/knowledge rules and intelligence contracts |
 | `lib/application` | `AppController` commands and UI refresh orchestration |
 | `lib/infrastructure` | SQLite repository, transactions, parsing, retrieval, backup/restore and local telemetry |
-| `lib/database` | Ordered schema migrations v1–v13 |
+| `lib/database` | Ordered schema migrations v1–v15 |
 | `lib/presentation` | Material desktop shell, six primary destinations, details, dialogs and charts |
 | `test` | Domain, repository, migration, forms and widget coverage |
 
@@ -17,9 +17,11 @@ Personal OS is a single-user Flutter desktop app with an offline-first SQLite da
 
 ## Data flow and control
 
-The causal path is Vision → Horizon → Strategy → Mission → Outcome → Initiative → Project → Task/Session → Output/Evidence. A completed session can atomically record duration, Output, Knowledge and Next Action. Verified Evidence feeds readiness. Reviews create structured recommendations and decision audit records. Strategy changes require user action and planning changes require a separate preview/approve/apply flow.
+The causal path is Vision → Horizon → Strategy → Mission → Outcome → Initiative → Project → Task/Session → Output/Evidence. Mission, Project and Task edits reconcile from their stable-ID Markdown source notes. A completed scheduled session projects Output, Learning and Next Action from its occurrence note without elapsed-time tracking. Verified Evidence feeds readiness. Reviews create structured recommendations and decision audit records. Strategy changes require user action and planning changes require a separate preview/approve/apply flow.
 
-Repository transactions enforce single active session, terminal-state protection, immutable decision history, source-link consistency, idempotent recurrence/import and restore staging. Foreign keys are enabled for every connection.
+Repository transactions enforce terminal-state protection, immutable decision history, source-link consistency, idempotent recurrence/import and restore staging. `expectedRevision` protects Markdown writes; `workspace_operations` records recoverable multi-record changes. Scheduled sessions no longer use Start/Pause/Stop or elapsed-time tracking: their planned end triggers reconciliation, and completion requires `status: done` plus a concrete Output in the occurrence note. Duplicate IDs, invalid YAML, missing references and inaccessible vaults are surfaced without guessing that a source was deleted. Foreign keys are enabled for every connection.
+
+On startup, resume, wake and manual checks, reconciliation uses the file index to process changed notes. While the app is open it also checks at planned end and every five minutes while overdue sessions await results. Full vault discovery is reserved for unmapped records, rename detection and explicit rebuild paths; no filesystem watcher or background service is required.
 
 ## Retrieval
 

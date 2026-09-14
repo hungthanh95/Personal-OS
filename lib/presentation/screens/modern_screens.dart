@@ -94,20 +94,34 @@ class MissionOverviewScreen extends StatelessWidget {
           mission.text('description').isNotEmpty
               ? mission.text('description')
               : 'Your active mission and the evidence needed to complete it.',
-          action: FilledButton.icon(
-            onPressed: () => editRecord(
-              context,
-              app,
-              'sessions',
-              initial: {
-                'title': skills.isEmpty
-                    ? 'Mission progress session'
-                    : 'Close gap: ${skills.first.title}',
-                'goal_id': mission.ref('goal_id'),
-              },
-            ),
-            icon: const Icon(Icons.add_task, size: 18),
-            label: const Text('Plan biggest gap'),
+          action: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => attempt(
+                  context,
+                  () => app.openMarkdownRecord('missions', mission.id),
+                ),
+                icon: const Icon(Icons.description_outlined, size: 18),
+                label: const Text('Open note'),
+              ),
+              FilledButton.icon(
+                onPressed: () => editRecord(
+                  context,
+                  app,
+                  'sessions',
+                  initial: {
+                    'title': skills.isEmpty
+                        ? 'Mission progress session'
+                        : 'Close gap: ${skills.first.title}',
+                    'goal_id': mission.ref('goal_id'),
+                  },
+                ),
+                icon: const Icon(Icons.add_task, size: 18),
+                label: const Text('Plan biggest gap'),
+              ),
+            ],
           ),
         ),
         Panel(
@@ -912,7 +926,8 @@ class _ProjectOverviewCard extends StatelessWidget {
   const _ProjectOverviewCard(this.app, this.project);
   @override
   Widget build(BuildContext context) {
-    final progress = app.workspace.projectProgress(project.id);
+    final execution = app.workspace.projectExecutionProgress(project.id);
+    final milestones = app.workspace.projectProgress(project.id);
     final mission = app.workspace
         .records('missions')
         .where(
@@ -957,7 +972,13 @@ class _ProjectOverviewCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 18),
-            ProgressValue(progress),
+            const SectionLabel('Task execution'),
+            const SizedBox(height: 6),
+            ProgressValue(execution),
+            const SizedBox(height: 10),
+            const SectionLabel('Milestones'),
+            const SizedBox(height: 6),
+            ProgressValue(milestones),
             const SizedBox(height: 18),
             const SectionLabel('Next action'),
             const SizedBox(height: 6),

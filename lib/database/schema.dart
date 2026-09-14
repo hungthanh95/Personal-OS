@@ -1,6 +1,6 @@
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-const schemaVersion = 13;
+const schemaVersion = 15;
 Future<void> migrate(Database db, int oldVersion, int newVersion) async {
   if (oldVersion < 1) {
     for (final sql in _v1) {
@@ -64,6 +64,16 @@ Future<void> migrate(Database db, int oldVersion, int newVersion) async {
   }
   if (oldVersion < 13 && newVersion >= 13) {
     for (final sql in _v13) {
+      await db.execute(sql);
+    }
+  }
+  if (oldVersion < 14 && newVersion >= 14) {
+    for (final sql in _v14) {
+      await db.execute(sql);
+    }
+  }
+  if (oldVersion < 15 && newVersion >= 15) {
+    for (final sql in _v15) {
       await db.execute(sql);
     }
   }
@@ -263,4 +273,22 @@ const _v13 = [
   "ALTER TABLE sessions ADD COLUMN blocked INTEGER NOT NULL DEFAULT 0 CHECK(blocked IN (0,1))",
   "ALTER TABLE sessions ADD COLUMN blocked_reason TEXT NOT NULL DEFAULT ''",
   "CREATE INDEX sessions_blocked ON sessions(blocked, planned_start)",
+];
+
+const _v14 = [
+  "ALTER TABLE sessions ADD COLUMN note_path TEXT NOT NULL DEFAULT ''",
+  "ALTER TABLE sessions ADD COLUMN note_checksum TEXT NOT NULL DEFAULT ''",
+  "ALTER TABLE sessions ADD COLUMN output_markdown TEXT NOT NULL DEFAULT ''",
+  "ALTER TABLE sessions ADD COLUMN learning_markdown TEXT NOT NULL DEFAULT ''",
+  "ALTER TABLE sessions ADD COLUMN reconciliation_error TEXT NOT NULL DEFAULT ''",
+  'ALTER TABLE sessions ADD COLUMN reconciled_at INTEGER',
+  'ALTER TABLE sessions ADD COLUMN confirmed_at INTEGER',
+  'CREATE INDEX sessions_reconciliation ON sessions(status, planned_start, reconciled_at)',
+  "CREATE TABLE workspace_operations (id TEXT PRIMARY KEY, kind TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('Started','Completed','Failed')), payload_json TEXT NOT NULL DEFAULT '{}', error TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL, completed_at INTEGER)",
+  "CREATE TABLE workspace_file_index (path TEXT PRIMARY KEY, size INTEGER NOT NULL CHECK(size>=0), modified_at INTEGER NOT NULL, checksum TEXT NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', body TEXT NOT NULL DEFAULT '', updated_at INTEGER NOT NULL)",
+];
+
+const _v15 = [
+  "CREATE TABLE workspace_entity_sources (entity_type TEXT NOT NULL CHECK(entity_type IN ('mission','project','task')), entity_id TEXT NOT NULL, path TEXT NOT NULL DEFAULT '', checksum TEXT NOT NULL DEFAULT '', error TEXT NOT NULL DEFAULT '', updated_at INTEGER NOT NULL, PRIMARY KEY(entity_type, entity_id))",
+  'CREATE INDEX workspace_entity_sources_path ON workspace_entity_sources(path)',
 ];

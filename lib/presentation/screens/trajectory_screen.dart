@@ -54,7 +54,7 @@ class TrajectoryScreen extends StatelessWidget {
                     _UsageMetric(
                       label: 'Active days',
                       value: '${usage.activeDays}',
-                      detail: 'Days with an attended session',
+                      detail: 'Days with an Obsidian-confirmed session',
                     ),
                     _UsageMetric(
                       label: 'Session completion',

@@ -28,14 +28,14 @@ Future<void> showOnboarding(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'A local workspace for connecting direction, focused work and evidence.',
+              'A local workspace for connecting direction, scheduled work and evidence.',
             ),
             SizedBox(height: 18),
             ListTile(
               leading: CircleAvatar(child: Text('1')),
-              title: Text('Set direction'),
+              title: Text('Connect your Obsidian vault'),
               subtitle: Text(
-                'Create a Vision and Strategy, or load the editable starter from Strategy.',
+                'Personal OS creates the workspace structure and one note per scheduled session without overwriting existing notes.',
               ),
             ),
             ListTile(
@@ -67,6 +67,17 @@ Future<void> showOnboarding(
         ),
       ),
       actions: [
+        TextButton.icon(
+          onPressed: () async {
+            final path = await getDirectoryPath(
+              confirmButtonText: 'Use this Obsidian vault',
+            );
+            if (path == null) return;
+            await app.configureMarkdownWorkspace(path);
+          },
+          icon: const Icon(Icons.folder_open_outlined),
+          label: const Text('Choose Obsidian vault'),
+        ),
         FilledButton(
           onPressed: () async {
             await app.save('settings', {
@@ -419,7 +430,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         Section(
-          'Local database',
+          'Obsidian workspace',
+          child: Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Choose an existing Obsidian vault. Personal OS creates its folders and one Markdown note for every scheduled learning or work session. Existing notes are never overwritten.',
+                ),
+                const SizedBox(height: 12),
+                SelectableText(
+                  widget.app.workspace.settings['obsidian_vault_path'] ??
+                      'No Obsidian vault configured',
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: chooseObsidianVault,
+                      icon: const Icon(Icons.folder_open_outlined),
+                      label: const Text('Choose vault'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: widget.app.reconciling
+                          ? null
+                          : () => attempt(context, () async {
+                              final result = await widget.app
+                                  .reconcileSessions();
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Scanned ${result.scanned} sessions · ${result.completed} completed · ${result.pending} awaiting result · ${result.errors} issues.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            }),
+                      icon: const Icon(Icons.sync),
+                      label: Text(
+                        widget.app.reconciling
+                            ? 'Checking workspace…'
+                            : 'Check workspace now',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Last successful scan: ${widget.app.workspace.settings['last_workspace_scan'] ?? 'not yet'}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ),
+        Section(
+          'Backup and local database',
           child: Panel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,6 +498,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 SelectableText(widget.databasePath),
+                OutlinedButton.icon(
+                  onPressed:
+                      widget
+                              .app
+                              .workspace
+                              .settings['obsidian_vault_path']
+                              ?.isNotEmpty ==
+                          true
+                      ? exportWorkspaceBackup
+                      : null,
+                  icon: const Icon(Icons.inventory_2_outlined),
+                  label: const Text('Export workspace backup'),
+                ),
+                const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: () => attempt(context, () async {
                     final location = await getSaveLocation(
@@ -464,7 +547,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
                 const SizedBox(height: 12),
                 const Text(
-                  'For a manual backup, close the application and copy the SQLite file to a safe location.',
+                  'The workspace ZIP includes the Obsidian vault and a consistent SQLite snapshot. Database-only backup remains available for the current restore flow.',
                 ),
               ],
             ),
@@ -505,7 +588,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Keyboard',
           child: const Panel(
             child: Text(
-              'Ctrl / Cmd + K   Search\nCtrl / Cmd + N   Quick capture\nSpace   Activate a focused session button\nEsc   Close a dialog',
+              'Ctrl / Cmd + K   Search\nCtrl / Cmd + N   Quick capture\nEsc   Close a dialog',
             ),
           ),
         ),
@@ -526,7 +609,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Activity Score',
           child: const Panel(
             child: Text(
-              'An approximate signal of attention, not well-being.\nActive goals: up to 20 points.\nSessions attended in 7 days: up to 50 points.\nMilestones completed in 7 days: up to 30 points.\nNo recent sessions with active goals: subtract 20.\nAlways clamped to 0–100.',
+              'An approximate signal of execution, not well-being.\nActive goals: up to 20 points.\nObsidian-confirmed sessions in 7 days: up to 50 points.\nMilestones completed in 7 days: up to 30 points.\nNo confirmed sessions for active goals: subtract 20.\nAlways clamped to 0–100.',
             ),
           ),
         ),
@@ -553,6 +636,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ],
     ),
   );
+
+  Future<void> chooseObsidianVault() async {
+    final path = await getDirectoryPath(
+      confirmButtonText: 'Use this Obsidian vault',
+    );
+    if (path == null || !mounted) return;
+    await attempt(context, () async {
+      await widget.app.configureMarkdownWorkspace(path);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Obsidian workspace initialized and indexed.'),
+          ),
+        );
+      }
+    });
+  }
 
   Future<void> saveReadinessWeights() async {
     final parsed = <String, double>{};
@@ -598,6 +698,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Portable JSON export saved.')),
+        );
+      }
+    });
+  }
+
+  Future<void> exportWorkspaceBackup() async {
+    final location = await getSaveLocation(
+      suggestedName:
+          'personal-os-workspace-${DateTime.now().millisecondsSinceEpoch}.zip',
+    );
+    if (location == null || !mounted) return;
+    await attempt(context, () async {
+      await widget.app.repository.backupWorkspace(location.path);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vault and SQLite workspace backup saved.'),
+          ),
         );
       }
     });

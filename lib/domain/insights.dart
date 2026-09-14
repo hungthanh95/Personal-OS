@@ -10,13 +10,14 @@ bool within(DateTime time, DateTime start, DateTime end) =>
 
 class WeeklyMetrics {
   final DateTime start;
-  final int planned, completed, focusedSeconds, outputCount;
+  final int planned, completed, pending, scheduledMinutes, outputCount;
   final Set<String> goalIds, outputProjectIds, activityProjectIds;
   const WeeklyMetrics(
     this.start,
     this.planned,
     this.completed,
-    this.focusedSeconds,
+    this.pending,
+    this.scheduledMinutes,
     this.outputCount,
     this.goalIds,
     this.outputProjectIds,
@@ -31,42 +32,19 @@ class WeeklyMetrics {
           within(s.plannedStart, start, end),
     );
     final output = w.outputs.where((o) => within(o.createdAt, start, end));
-    var seconds = 0;
-    final attendedIds = <String>{};
-    for (final i in w.intervals) {
-      final total = i.end.difference(i.start).inSeconds;
-      final overlap =
-          max(
-            0,
-            min(i.end.millisecondsSinceEpoch, end.millisecondsSinceEpoch) -
-                max(
-                  i.start.millisecondsSinceEpoch,
-                  start.millisecondsSinceEpoch,
-                ),
-          ) ~/
-          1000;
-      final contribution = total == i.seconds && total > 0
-          ? overlap
-          : (within(i.end, start, end) ? i.seconds : 0);
-      seconds += contribution;
-      if (contribution > 0) attendedIds.add(i.sessionId);
-    }
-    final attended = w.sessions.where(
-      (s) =>
-          attendedIds.contains(s.id) ||
-          (s.attended &&
-              within(s.at('actual_end') ?? s.at('actual_start')!, start, end) &&
-              s.status != SessionStatus.active),
-    );
+    final completed = planned
+        .where((session) => session.status == SessionStatus.done)
+        .toList();
     return WeeklyMetrics(
       start,
       planned.length,
-      planned.where((s) => s.status == SessionStatus.done).length,
-      seconds,
+      completed.length,
+      planned.where((session) => session.isAwaitingResult(day)).length,
+      planned.fold(0, (total, session) => total + session.plannedMinutes),
       output.length,
-      attended.map((s) => w.sessionGoal(s)?.id).whereType<String>().toSet(),
+      completed.map((s) => w.sessionGoal(s)?.id).whereType<String>().toSet(),
       output.map((o) => o.projectId).whereType<String>().toSet(),
-      attended.map((s) => s.projectId).whereType<String>().toSet(),
+      completed.map((s) => s.projectId).whereType<String>().toSet(),
     );
   }
 }
@@ -75,8 +53,8 @@ DateTime lastProjectActivity(Workspace w, Project p) {
   final dates = <DateTime>[
     p.createdAt,
     ...w.sessions
-        .where((s) => s.projectId == p.id && s.attended)
-        .map((s) => s.at('actual_end') ?? s.at('actual_start')!),
+        .where((s) => s.projectId == p.id && s.status == SessionStatus.done)
+        .map((s) => s.plannedEnd),
     ...w.outputs.where((o) => o.projectId == p.id).map((o) => o.createdAt),
     ...w.milestones
         .where((m) => m.projectId == p.id && m.completed)
@@ -103,8 +81,12 @@ List<Goal> inactiveGoals(Workspace w, DateTime now, {int days = 14}) =>
             .where((p) => p.goalId == g.id)
             .map((p) => lastProjectActivity(w, p)),
         ...w.sessions
-            .where((s) => w.sessionGoal(s)?.id == g.id && s.attended)
-            .map((s) => s.at('actual_end') ?? s.at('actual_start')!),
+            .where(
+              (s) =>
+                  w.sessionGoal(s)?.id == g.id &&
+                  s.status == SessionStatus.done,
+            )
+            .map((s) => s.plannedEnd),
       ];
       dates.sort();
       return now.difference(dates.last).inDays >= days;
@@ -119,9 +101,9 @@ int activityScore(Workspace w, LifeArea area, DateTime now) {
       .where(
         (s) =>
             goals.contains(w.sessionGoal(s)?.id) &&
-            s.attended &&
+            s.status == SessionStatus.done &&
             within(
-              s.at('actual_end') ?? s.at('actual_start')!,
+              s.plannedEnd,
               since,
               now.add(const Duration(milliseconds: 1)),
             ),
@@ -166,10 +148,8 @@ class RuleBasedInsightProvider implements InsightProvider {
       final sessions = w.sessions.where(
         (s) =>
             s.projectId == p.id &&
-            s.attended &&
-            (s.at('actual_end') ?? s.at('actual_start')!).isAfter(
-              now.subtract(const Duration(days: 14)),
-            ),
+            s.status == SessionStatus.done &&
+            s.plannedEnd.isAfter(now.subtract(const Duration(days: 14))),
       );
       final outputs = w.outputs.where(
         (o) =>

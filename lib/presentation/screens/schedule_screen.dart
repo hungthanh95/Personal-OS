@@ -95,7 +95,7 @@ class ScheduleScreen extends StatelessWidget {
             ),
             const Panel(
               child: Text(
-                'The app keeps the next 21 days planned automatically. Generation is idempotent. Editing a template or recurrence rebuilds only future planned occurrences; completed work remains in history.',
+                'The app keeps the next 21 days planned automatically. Generation is idempotent. Editing or pausing a recurrence affects newly generated occurrences; existing occurrence notes remain user-owned history.',
               ),
             ),
           ],
@@ -109,6 +109,7 @@ class ScheduleScreen extends StatelessWidget {
       'session_templates',
       schedule.ref('template_id'),
     );
+    final streak = app.workspace.sessionStreak(schedule.id, DateTime.now());
     return Card(
       child: ListTile(
         leading: Icon(
@@ -118,7 +119,7 @@ class ScheduleScreen extends StatelessWidget {
         ),
         title: Text(schedule.title),
         subtitle: Text(
-          '${template?.title ?? 'Missing template'} · days ${schedule.text('weekdays')} at ${schedule.text('local_time')} · ${schedule.number('enabled', 1) == 1 ? 'Enabled' : 'Paused'}',
+          '${template?.title ?? 'Missing template'} · days ${schedule.text('weekdays')} at ${schedule.text('local_time')} · ${schedule.number('enabled', 1) == 1 ? 'Enabled' : 'Paused'}\nStreak ${streak.confirmed}${streak.pending == 0 ? '' : ' · ${streak.pending} awaiting result'}',
         ),
         trailing: const Icon(Icons.edit_outlined),
         onTap: () => editStrategyRecord(

@@ -1,26 +1,26 @@
-# Verification — Personal OS 0.4.0
+# Verification — Personal OS 0.4.0 / Architecture V4.1
 
-Verified on 13/09/2026, Windows x64, Flutter 3.44.2 stable and Dart 3.12.2.
+Verified on 14/09/2026, Windows x64, Flutter 3.44.2 stable and Dart 3.12.2.
 
 ## Automated gates
 
 | Gate | Result |
 | --- | --- |
-| `dart format lib test` | PASS — 35 files formatted |
+| `dart format lib test` | PASS — 43 files checked |
 | `flutter analyze` | PASS — no issues |
-| `flutter test` | PASS — 44 tests |
-| Historical migration loop | PASS — schema versions 1–12 upgrade to v13 and retain stored settings |
-| `flutter build windows --release` | PASS |
+| `flutter test` | PASS — 74 tests |
+| Historical migration loop | PASS — schema versions 1–14 upgrade to v15 and retain stored settings |
+| `flutter build windows --release` | PASS — `build/windows/x64/runner/Release/personal_os.exe` |
 | Native isolated-data smoke | PASS — process remained running for 8 seconds and created a 720,896-byte SQLite workspace |
 
-Tests cover session timing/transitions including Blocked, atomic evidence capture, recurrence, validation/rollback, strategy versions and decisions, readiness, adaptive reviews, plan propagation, source-aware/semantic Knowledge, JD extraction/funnel inputs, interview conversion, Ownership/Capital records, portable export/category deletion, backup/restore foundations, responsive forms and desktop navigation.
+Focused V4.1 tests cover output-confirmed scheduled sessions without a timer, late/retracted output, unresolved links, YAML errors, rename and duplicate-ID handling, incremental scans, recurrence/streak, interrupted planning-write recovery, Markdown rebuild, offline vault behavior, combined vault/SQLite backup, Mission/Project/Task source creation and reconciliation, app-side patch preservation, and source rename/deletion behavior. The final full-suite result below is recorded only after the release gate completes.
 
 ## Release artifact
 
-`dist/PersonalOS-0.4.0-windows-x64.zip`
+`dist/PersonalOS-0.4.0-v4.1-windows-x64.zip`
 
-- Size: 14,684,680 bytes
-- SHA-256: `F5EC509BB81E6D2F002BDEB5BEDA9930D9DDC3949EF8E0031F93F4989C5CCA19`
+- Size: 14,879,946 bytes
+- SHA-256: `DF53B6FB970A964C5FC6162A7AFE999AD94BCD04015E0C4BB4DBA1802DA70EB9`
 - ZIP entries: 16
 - Contents check: executable, Flutter runtime, SQLite/file-selector libraries, asset manifest and editable strategy starter are present.
 

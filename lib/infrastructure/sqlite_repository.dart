@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:archive/archive.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart' as p;
 import '../database/schema.dart';
@@ -8,10 +9,15 @@ import '../domain/intelligence.dart';
 import '../domain/models.dart';
 import '../domain/repository.dart';
 import 'seed.dart';
+import 'markdown_workspace.dart';
 
 class SqliteWorkspaceRepository implements WorkspaceRepository {
   final Database db;
   SqliteWorkspaceRepository._(this.db);
+  MarkdownWorkspaceManager get markdownWorkspace =>
+      MarkdownWorkspaceManager(db);
+  SessionReconciliationService get sessionReconciliation =>
+      SessionReconciliationService(markdownWorkspace);
   static Future<SqliteWorkspaceRepository> open(
     String path, {
     bool demo = true,
@@ -122,6 +128,15 @@ class SqliteWorkspaceRepository implements WorkspaceRepository {
         await _rebuildKnowledgeStructure(tx, row['id'] as String);
       }
     });
+    if (await markdownWorkspace.configuredRoot != null) {
+      try {
+        await markdownWorkspace.ensureDomainNotes();
+        await markdownWorkspace.ensureSessionNotes();
+      } on FileSystemException {
+        // Loading the local projection must still work while the vault is
+        // disconnected. Reconciliation reports the actionable error.
+      }
+    }
     return db.transaction(
       (tx) async => Workspace(
         strategyData: {
@@ -403,32 +418,6 @@ class SqliteWorkspaceRepository implements WorkspaceRepository {
             before,
             nextStatus,
             decidedAt,
-          );
-        }
-      }
-    }
-    if (table == 'recurring_schedules' || table == 'session_templates') {
-      final occurrenceDate = _isoDate(DateTime.now());
-      if (table == 'recurring_schedules') {
-        await tx.delete(
-          'sessions',
-          where:
-              "recurring_schedule_id = ? AND occurrence_date >= ? AND status = 'PLANNED'",
-          whereArgs: [row['id'], occurrenceDate],
-        );
-      } else {
-        final schedules = await tx.query(
-          'recurring_schedules',
-          columns: ['id'],
-          where: 'template_id = ?',
-          whereArgs: [row['id']],
-        );
-        for (final schedule in schedules) {
-          await tx.delete(
-            'sessions',
-            where:
-                "recurring_schedule_id = ? AND occurrence_date >= ? AND status = 'PLANNED'",
-            whereArgs: [schedule['id'], occurrenceDate],
           );
         }
       }
@@ -900,7 +889,9 @@ class SqliteWorkspaceRepository implements WorkspaceRepository {
     return Session(rows.single);
   }
 
-  @override
+  @Deprecated(
+    'Legacy migration compatibility only; the product uses Obsidian reconciliation.',
+  )
   Future<void> startSession(String id, DateTime now) => db.transaction((
     tx,
   ) async {
@@ -925,7 +916,9 @@ class SqliteWorkspaceRepository implements WorkspaceRepository {
       whereArgs: [id],
     );
   });
-  @override
+  @Deprecated(
+    'Legacy migration compatibility only; the product uses Obsidian reconciliation.',
+  )
   Future<void> reviewSession(
     String id,
     SessionStatus status,
@@ -1038,30 +1031,31 @@ class SqliteWorkspaceRepository implements WorkspaceRepository {
     }
   });
   @override
-  Future<void> reschedule(
-    String id,
-    DateTime start,
-    int minutes,
-  ) => db.transaction((tx) async {
-    final s = await _session(tx, id);
-    if (s.status != SessionStatus.planned &&
-        s.status != SessionStatus.inProgress &&
-        s.status != SessionStatus.blocked) {
+  Future<void> reschedule(String id, DateTime start, int minutes) async {
+    final s = await _session(db, id);
+    if (s.status.terminal) {
       throw StateError(
-        'Only planned, in-progress, or blocked sessions can be rescheduled.',
+        'Completed, skipped, or cancelled sessions cannot be moved.',
       );
     }
     if (minutes <= 0) throw ArgumentError('Choose a positive duration.');
-    await tx.update(
-      'sessions',
-      {
-        'planned_start': start.millisecondsSinceEpoch,
-        'planned_minutes': minutes,
-      },
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  });
+    if (await markdownWorkspace.configuredRoot != null) {
+      await markdownWorkspace.updateSessionPlan(id, start, minutes);
+    } else {
+      await db.transaction((tx) async {
+        await tx.update(
+          'sessions',
+          {
+            'planned_start': start.millisecondsSinceEpoch,
+            'planned_minutes': minutes,
+          },
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      });
+    }
+  }
+
   @override
   Future<void> triage(String inboxId, String destination, DataRowMap row) =>
       db.transaction((tx) async {
@@ -1099,6 +1093,9 @@ class SqliteWorkspaceRepository implements WorkspaceRepository {
       throw StateError('This workspace is no longer a demo.');
     }
     for (final table in [
+      'workspace_entity_sources',
+      'workspace_file_index',
+      'workspace_operations',
       'review_evidence',
       'review_decisions',
       'recommendation_decisions',
@@ -1184,7 +1181,12 @@ class SqliteWorkspaceRepository implements WorkspaceRepository {
         'schema_version': schemaVersion,
         'exported_at': DateTime.now().toUtc().toIso8601String(),
         'tables': {
-          for (final table in {...tables, 'focus_intervals'})
+          for (final table in {
+            ...tables,
+            'focus_intervals',
+            'workspace_operations',
+            'workspace_entity_sources',
+          })
             table: await tx.query(table),
         },
       },
@@ -1217,6 +1219,7 @@ class SqliteWorkspaceRepository implements WorkspaceRepository {
           'jobs',
         ],
         'Knowledge' => [
+          'workspace_file_index',
           'knowledge_concepts',
           'knowledge_embeddings',
           'knowledge_links',
@@ -1255,6 +1258,63 @@ class SqliteWorkspaceRepository implements WorkspaceRepository {
   @override
   Future<void> backup(String path) async {
     await db.execute('VACUUM INTO ?', [path]);
+  }
+
+  @override
+  Future<void> backupWorkspace(String path) async {
+    final rootPath = await markdownWorkspace.configuredRoot;
+    if (rootPath == null) {
+      throw StateError(
+        'Choose an Obsidian vault before exporting a workspace backup.',
+      );
+    }
+    final root = Directory(rootPath);
+    if (!await root.exists()) {
+      throw FileSystemException('Obsidian vault is unavailable', rootPath);
+    }
+    final temporary = await Directory.systemTemp.createTemp(
+      'personal_os_backup_',
+    );
+    try {
+      final databaseSnapshot = File(
+        p.join(temporary.path, 'personal_os.sqlite'),
+      );
+      await backup(databaseSnapshot.path);
+      final archive = Archive();
+      final databaseBytes = await databaseSnapshot.readAsBytes();
+      archive.addFile(
+        ArchiveFile(
+          'personal-os/database.sqlite',
+          databaseBytes.length,
+          databaseBytes,
+        ),
+      );
+      final targetPath = p.normalize(p.absolute(path));
+      await for (final entity in root.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is! File || p.equals(p.normalize(entity.path), targetPath)) {
+          continue;
+        }
+        final bytes = await entity.readAsBytes();
+        final relative = p
+            .relative(entity.path, from: root.path)
+            .replaceAll('\\', '/');
+        archive.addFile(
+          ArchiveFile('personal-os/vault/$relative', bytes.length, bytes),
+        );
+      }
+      final encoded = ZipEncoder().encode(archive);
+      if (encoded == null) {
+        throw StateError('Could not encode workspace backup.');
+      }
+      await File(path).writeAsBytes(encoded, flush: true);
+    } finally {
+      if (await temporary.exists()) {
+        await temporary.delete(recursive: true);
+      }
+    }
   }
 
   @override
@@ -1392,9 +1452,37 @@ class SqliteWorkspaceRepository implements WorkspaceRepository {
   });
 
   @override
-  Future<int> generateRecurringSessions(DateTime through) => db.transaction(
-    (tx) => _materializeRecurringSessions(tx, DateTime.now(), through),
-  );
+  Future<int> generateRecurringSessions(DateTime through) async {
+    final count = await db.transaction(
+      (tx) => _materializeRecurringSessions(tx, DateTime.now(), through),
+    );
+    await markdownWorkspace.ensureSessionNotes();
+    return count;
+  }
+
+  @override
+  Future<void> configureMarkdownWorkspace(String path) =>
+      markdownWorkspace.initialize(path);
+
+  @override
+  Future<String> markdownRecordPath(String table, String id) =>
+      markdownWorkspace.recordNotePath(table, id);
+
+  @override
+  Future<String> sessionNotePath(String sessionId) =>
+      markdownWorkspace.sessionNotePath(sessionId);
+
+  @override
+  Future<SessionReconciliationSummary> reconcileSessions({DateTime? now}) =>
+      sessionReconciliation.reconcile(now: now);
+
+  @override
+  Future<void> setSessionDisposition(String sessionId, String status) =>
+      markdownWorkspace.setSessionDisposition(sessionId, status);
+
+  @override
+  Future<void> syncMarkdownRecord(String table, String id) =>
+      markdownWorkspace.syncRecord(table, id);
 
   @override
   Future<String> preserveKnowledgeSource(
@@ -1863,82 +1951,128 @@ class SqliteWorkspaceRepository implements WorkspaceRepository {
       });
 
   @override
-  Future<int> applyPlanningChangeSet(String id) => db.transaction((tx) async {
-    final sets = await tx.query(
-      'planning_change_sets',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    if (sets.isEmpty) throw StateError('Planning preview not found.');
-    final set = sets.single;
-    if (set['status'] != 'Approved') {
-      throw StateError('Approve this planning preview before applying it.');
-    }
-    final changes = await tx.query(
-      'planning_changes',
-      where: "change_set_id = ? AND status = 'Proposed'",
-      whereArgs: [id],
-    );
-    var applied = 0;
-    for (final change in changes) {
-      final payload = Map<String, Object?>.from(
-        jsonDecode(change['payload_json'] as String) as Map,
-      );
-      if (change['action'] == 'CreateSession') {
-        await _validateLinks(tx, 'sessions', payload);
-        await tx.insert('sessions', payload);
-      } else if (change['action'] == 'UpdateSession') {
-        final sessionId = change['target_id'] as String?;
-        if (sessionId == null) throw StateError('Session target is missing.');
-        final session = await _session(tx, sessionId);
-        if (session.status != SessionStatus.planned &&
-            session.status != SessionStatus.inProgress) {
-          throw StateError('Only future or paused sessions can be updated.');
-        }
-        await _validateLinks(tx, 'sessions', {...session.data, ...payload});
-        await tx.update(
-          'sessions',
-          payload,
+  Future<int> applyPlanningChangeSet(String id) async {
+    final operationId = 'workspace-${DateTime.now().microsecondsSinceEpoch}';
+    await db.insert('workspace_operations', {
+      'id': operationId,
+      'kind': 'ApplyPlanningChangeSet',
+      'status': 'Started',
+      'payload_json': jsonEncode({'change_set_id': id}),
+      'created_at': DateTime.now().millisecondsSinceEpoch,
+    });
+    try {
+      final count = await db.transaction((tx) async {
+        final sets = await tx.query(
+          'planning_change_sets',
           where: 'id = ?',
-          whereArgs: [sessionId],
+          whereArgs: [id],
         );
-      } else if (change['action'] == 'CancelSession') {
-        final sessionId = change['target_id'] as String?;
-        if (sessionId == null) throw StateError('Session target is missing.');
-        final session = await _session(tx, sessionId);
-        if (session.status.terminal) {
-          throw StateError('Completed session history cannot be cancelled.');
+        if (sets.isEmpty) throw StateError('Planning preview not found.');
+        final set = sets.single;
+        if (set['status'] != 'Approved') {
+          throw StateError('Approve this planning preview before applying it.');
         }
-        await tx.update(
-          'sessions',
-          {'status': 'CANCELLED'},
-          where: 'id = ?',
-          whereArgs: [sessionId],
+        final changes = await tx.query(
+          'planning_changes',
+          where: "change_set_id = ? AND status = 'Proposed'",
+          whereArgs: [id],
         );
+        var applied = 0;
+        for (final change in changes) {
+          final payload = Map<String, Object?>.from(
+            jsonDecode(change['payload_json'] as String) as Map,
+          );
+          if (change['action'] == 'CreateSession') {
+            await _validateLinks(tx, 'sessions', payload);
+            await tx.insert('sessions', payload);
+          } else if (change['action'] == 'UpdateSession') {
+            final sessionId = change['target_id'] as String?;
+            if (sessionId == null) {
+              throw StateError('Session target is missing.');
+            }
+            final session = await _session(tx, sessionId);
+            if (session.status != SessionStatus.planned &&
+                session.status != SessionStatus.inProgress) {
+              throw StateError(
+                'Only future or paused sessions can be updated.',
+              );
+            }
+            await _validateLinks(tx, 'sessions', {...session.data, ...payload});
+            await tx.update(
+              'sessions',
+              payload,
+              where: 'id = ?',
+              whereArgs: [sessionId],
+            );
+          } else if (change['action'] == 'CancelSession') {
+            final sessionId = change['target_id'] as String?;
+            if (sessionId == null) {
+              throw StateError('Session target is missing.');
+            }
+            final session = await _session(tx, sessionId);
+            if (session.status.terminal) {
+              throw StateError(
+                'Completed session history cannot be cancelled.',
+              );
+            }
+            await tx.update(
+              'sessions',
+              {'status': 'CANCELLED'},
+              where: 'id = ?',
+              whereArgs: [sessionId],
+            );
+          }
+          await tx.update(
+            'planning_changes',
+            {'status': 'Applied'},
+            where: 'id = ?',
+            whereArgs: [change['id']],
+          );
+          applied++;
+        }
+        final stamp = DateTime.now().millisecondsSinceEpoch;
+        await tx.update(
+          'planning_change_sets',
+          {'status': 'Applied', 'applied_at': stamp},
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        await tx.update(
+          'recommendations',
+          {'status': 'Applied'},
+          where: 'id = ?',
+          whereArgs: [set['recommendation_id']],
+        );
+        return applied;
+      });
+      if (await markdownWorkspace.configuredRoot != null) {
+        final recovered = await markdownWorkspace.recoverPlanningChangeSet(id);
+        if (!recovered) {
+          throw StateError(
+            'The applied planning change set could not be read.',
+          );
+        }
       }
-      await tx.update(
-        'planning_changes',
-        {'status': 'Applied'},
+      await db.update(
+        'workspace_operations',
+        {
+          'status': 'Completed',
+          'completed_at': DateTime.now().millisecondsSinceEpoch,
+        },
         where: 'id = ?',
-        whereArgs: [change['id']],
+        whereArgs: [operationId],
       );
-      applied++;
+      return count;
+    } catch (error) {
+      await db.update(
+        'workspace_operations',
+        {'status': 'Failed', 'error': '$error'},
+        where: 'id = ?',
+        whereArgs: [operationId],
+      );
+      rethrow;
     }
-    final stamp = DateTime.now().millisecondsSinceEpoch;
-    await tx.update(
-      'planning_change_sets',
-      {'status': 'Applied', 'applied_at': stamp},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    await tx.update(
-      'recommendations',
-      {'status': 'Applied'},
-      where: 'id = ?',
-      whereArgs: [set['recommendation_id']],
-    );
-    return applied;
-  });
+  }
 
   Future<int> _materializeRecurringSessions(
     DatabaseExecutor tx,

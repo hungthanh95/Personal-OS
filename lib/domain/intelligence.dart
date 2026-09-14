@@ -241,10 +241,9 @@ class LocalIntelligenceProvider implements IntelligenceProvider {
               entry.createdAt.isBefore(periodEnd),
         )
         .toList();
-    final focusedSeconds = sessions.fold<int>(
-      0,
-      (sum, session) => sum + session.actualSeconds,
-    );
+    final confirmedPlannedMinutes = sessions
+        .where((session) => session.status == SessionStatus.done)
+        .fold<int>(0, (sum, session) => sum + session.plannedMinutes);
     final wins = <String>[
       if (completed > 0) '$completed sessions completed',
       if (outputs.isNotEmpty) '${outputs.length} concrete outputs recorded',
@@ -292,11 +291,11 @@ class LocalIntelligenceProvider implements IntelligenceProvider {
           reason: priority.reason,
           factBasis: priority.reason,
           inference:
-              'Giving this gap focused time next period is likely to improve mission readiness.',
+              'Scheduling deliberate practice for this gap next period is likely to improve mission readiness.',
           expectedBenefit: 'Improve progress on ${mission!.title}',
           risk: 'May reduce time available for other active priorities.',
           confidence: (priority.confidence * 100).round(),
-          suggestedAction: 'Plan one focused session for ${priority.title}.',
+          suggestedAction: 'Plan one scheduled session for ${priority.title}.',
           targetType: priority.skillId == null ? 'Mission' : 'Skill',
           targetId: priority.skillId ?? mission.id,
           evidenceIds: verifiedEvidence
@@ -362,7 +361,7 @@ class LocalIntelligenceProvider implements IntelligenceProvider {
         ? null
         : (workspace.missionProgress(mission.id) * 100).round();
     final periodDetail = type == 'Quarterly'
-        ? 'Quarterly aggregate: ${(focusedSeconds / 3600).toStringAsFixed(1)} focused hours; ${jobs.length} jobs, ${applications.length} applications and ${interviews.length} interviews; ${discoveries.length} customer discoveries and ${revenue.toStringAsFixed(2)} revenue.'
+        ? 'Quarterly aggregate: $completed output-confirmed sessions ($confirmedPlannedMinutes planned minutes); ${jobs.length} jobs, ${applications.length} applications and ${interviews.length} interviews; ${discoveries.length} customer discoveries and ${revenue.toStringAsFixed(2)} revenue.'
         : type == 'Annual'
         ? 'Annual thesis review: ${changedAssumptions.length} assumptions require attention; ${workspace.records('engine_allocations').length} engine allocations are recorded.'
         : type == 'EventDriven'

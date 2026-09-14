@@ -11,7 +11,7 @@ Vision → Horizon → Strategy → Mission → Outcome → Initiative
 
 ## Chạy bản Windows
 
-- Portable release: `dist/PersonalOS-0.4.0-windows-x64.zip`
+- Portable V4.1 release: `dist/PersonalOS-0.4.0-v4.1-windows-x64.zip`
 - Executable sau khi build: `build/windows/x64/runner/Release/personal_os.exe`
 
 Giải nén toàn bộ ZIP rồi giữ executable, DLL và thư mục `data` cùng nhau.
@@ -33,13 +33,14 @@ flutter run -d windows --dart-define=PERSONAL_OS_DB=D:/temp/personal-os-dev.sqli
 
 ## Chức năng hiện tại
 
-- Today: lập lịch, recurring plan, timer một phiên active, pause/resume, Blocked, output/learning/next action và Why Path.
+- Today: lập lịch và recurring plan; mỗi buổi có một note Obsidian. Sau giờ kết thúc, app xác nhận `status: done` + Output, cập nhật completion/streak và không đo thời gian thực tế.
+- Markdown workspace: Mission, Project, Task và Session có source note riêng; app patch các field do hệ thống quản lý, giữ nguyên section người dùng thêm và dùng SQLite làm projection có thể rebuild.
 - Mission: outcomes có trọng số, sáu chiều readiness dựa trên evidence, trọng số tùy chỉnh, trajectory 30/90 ngày và usage metrics.
 - Strategy: hierarchy explorer, assumptions/events, review thích ứng, recommendation có evidence/risk/confidence, Accept/Modify/Reject, version history và plan propagation preview.
 - Projects: milestone/task/session/output/Knowledge, Income Lab, Ownership Engine, customer discovery, revenue/distribution, capital contribution và net-worth snapshots.
 - Knowledge: import TXT/Markdown/PDF/DOCX, hướng dẫn chuyển DOC cũ, bảo tồn nguồn/checksum/section, FTS5 + semantic local + concept graph, duplicate/freshness và gợi ý theo session.
 - Career: nhập tối đa 50 JD, phân tích required/preferred/years/domain/salary, demand/readiness, application/interview funnel, weakness clusters và learning priorities.
-- Privacy/data: backup/restore có safety snapshot, portable JSON export, xóa từng nhóm dữ liệu, migration v1–v13 và local context-sharing audit.
+- Privacy/data: workspace ZIP gồm vault + SQLite, database restore có safety snapshot, portable JSON export, xóa từng nhóm dữ liệu, migration v1–v15 và local context-sharing audit.
 
 ## Kiểm tra
 

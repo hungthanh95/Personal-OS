@@ -35,7 +35,7 @@ bool sessionSupportsMission(
 class MissionWeeklySummary {
   final int planned;
   final int completed;
-  final int focusedSeconds;
+  final int pending;
   final int outputCount;
   final int applicationCount;
   final int interviewCount;
@@ -43,7 +43,7 @@ class MissionWeeklySummary {
   const MissionWeeklySummary({
     required this.planned,
     required this.completed,
-    required this.focusedSeconds,
+    required this.pending,
     required this.outputCount,
     required this.applicationCount,
     required this.interviewCount,
@@ -80,28 +80,6 @@ class MissionWeeklySummary {
         )
         .map((output) => output.id)
         .toSet();
-    var focusedSeconds = 0;
-    for (final interval in workspace.intervals.where(
-      (interval) => sessionIds.contains(interval.sessionId),
-    )) {
-      final total = interval.end.difference(interval.start).inSeconds;
-      final overlap =
-          max(
-            0,
-            min(
-                  interval.end.millisecondsSinceEpoch,
-                  end.millisecondsSinceEpoch,
-                ) -
-                max(
-                  interval.start.millisecondsSinceEpoch,
-                  start.millisecondsSinceEpoch,
-                ),
-          ) ~/
-          1000;
-      focusedSeconds += total == interval.seconds && total > 0
-          ? overlap
-          : (within(interval.end, start, end) ? interval.seconds : 0);
-    }
     final jobIds = workspace
         .records('jobs')
         .where((job) => job.ref('mission_id') == mission.id)
@@ -129,7 +107,9 @@ class MissionWeeklySummary {
       completed: sessions
           .where((session) => session.status == SessionStatus.done)
           .length,
-      focusedSeconds: focusedSeconds,
+      pending: sessions
+          .where((session) => session.isAwaitingResult(day))
+          .length,
       outputCount: outputIds.length,
       applicationCount: applications.length,
       interviewCount: interviews,

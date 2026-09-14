@@ -53,6 +53,11 @@ class _PersonalOsBootstrapState extends State<PersonalOsBootstrap> {
           'value': '${startup.elapsedMilliseconds}',
         });
         await controller.refresh();
+        try {
+          await controller.reconcileSessions();
+        } catch (_) {
+          // Keep the local projection available and retain the scan error.
+        }
       } catch (_) {
         await repository.close();
         rethrow;

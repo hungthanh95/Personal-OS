@@ -201,6 +201,10 @@ class ProjectCard extends StatelessWidget {
             style: const TextStyle(fontSize: 12),
           ),
           const SizedBox(height: 18),
+          const Text('Task execution', style: TextStyle(fontSize: 12)),
+          ProgressValue(app.workspace.projectExecutionProgress(project.id)),
+          const SizedBox(height: 10),
+          const Text('Milestones', style: TextStyle(fontSize: 12)),
           ProgressValue(app.workspace.projectProgress(project.id)),
           const SizedBox(height: 16),
           Text(
@@ -268,6 +272,15 @@ class DirectionDetail extends StatelessWidget {
         appBar: AppBar(
           title: Text(isGoal ? 'Goal' : 'Project'),
           actions: [
+            if (!isGoal)
+              TextButton.icon(
+                onPressed: () => attempt(
+                  context,
+                  () => app.openMarkdownRecord('projects', id),
+                ),
+                icon: const Icon(Icons.description_outlined),
+                label: const Text('Open note'),
+              ),
             TextButton.icon(
               onPressed: () => editRecord(
                 context,
@@ -318,9 +331,15 @@ class DirectionDetail extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ProgressValue(
-                          isGoal ? w.goalProgress(id) : w.projectProgress(id),
-                        ),
+                        if (isGoal)
+                          ProgressValue(w.goalProgress(id))
+                        else ...[
+                          const Text('Task execution'),
+                          ProgressValue(w.projectExecutionProgress(id)),
+                          const SizedBox(height: 12),
+                          const Text('Milestone progress'),
+                          ProgressValue(w.projectProgress(id)),
+                        ],
                         const SizedBox(height: 18),
                         Text(
                           'NEXT MILESTONE  ${pendingMilestone?.title ?? 'Define the next meaningful milestone'}',
@@ -441,7 +460,7 @@ class DirectionDetail extends StatelessWidget {
                           const Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              'Use tasks for small steps; plan sessions for focused execution.',
+                              'Use tasks for small steps; plan sessions for scheduled execution.',
                             ),
                           ),
                         ...w.tasks
@@ -462,15 +481,33 @@ class DirectionDetail extends StatelessWidget {
                                 subtitle: Text(
                                   '${t.text('status')} · P${t.number('priority', 2)}${t.text('description').isEmpty ? '' : '\n${t.text('description')}'}',
                                 ),
-                                secondary: IconButton(
-                                  tooltip: 'Edit task',
-                                  onPressed: () => editRecord(
-                                    context,
-                                    app,
-                                    'tasks',
-                                    entity: t,
-                                  ),
-                                  icon: const Icon(Icons.edit_outlined),
+                                secondary: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      tooltip: 'Open task note',
+                                      onPressed: () => attempt(
+                                        context,
+                                        () => app.openMarkdownRecord(
+                                          'tasks',
+                                          t.id,
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.description_outlined,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Edit task',
+                                      onPressed: () => editRecord(
+                                        context,
+                                        app,
+                                        'tasks',
+                                        entity: t,
+                                      ),
+                                      icon: const Icon(Icons.edit_outlined),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -553,13 +590,17 @@ class DirectionDetail extends StatelessWidget {
                       children: [
                         Text('Created ${dayLabel(entity.createdAt)}'),
                         ...sessions
-                            .where((s) => s.at('actual_end') != null)
+                            .where(
+                              (s) =>
+                                  s.status == SessionStatus.done &&
+                                  (s.confirmedAt ?? s.at('actual_end')) != null,
+                            )
                             .take(8)
                             .map(
                               (s) => Padding(
                                 padding: const EdgeInsets.only(top: 10),
                                 child: Text(
-                                  '${dayLabel(s.at('actual_end')!)} · ${s.status.label} · ${s.title}',
+                                  '${dayLabel(s.confirmedAt ?? s.at('actual_end')!)} · ${s.status.label} · ${s.title}',
                                 ),
                               ),
                             ),

@@ -12,7 +12,7 @@ Lần mở đầu có Quick start và dữ liệu mẫu mang nhãn **DEMO WORKSP
 
 | Màn hình | Mục đích |
 | --- | --- |
-| Today | Chọn việc quan trọng, chạy session, xem Why Path và tuần hiện tại |
+| Today | Xem lịch, mở note Obsidian, kiểm tra kết quả, Why Path và tuần hiện tại |
 | Mission | Outcome, skill readiness, blocker, trajectory và Career workspace |
 | Strategy | Vision đến Initiative, assumptions/events, recommendation và version history |
 | Projects | Project, task, milestone, output, Income/Ownership/Capital |
@@ -31,30 +31,29 @@ Phím tắt: `Ctrl+K` mở tìm kiếm toàn app, `Ctrl+N` mở quick capture, `
 4. Vào **Projects**, tạo Project thuộc Initiative hoặc Outcome.
 5. Thêm Task hoặc Session vào Project.
 
+Sau khi chọn vault, app tạo source note riêng cho Mission, Project và Task. Dùng **Open note** tại màn hình tương ứng để sửa nội dung trong Obsidian. Lần scan tiếp theo cập nhật projection; đổi tên hoặc di chuyển note vẫn giữ liên kết bằng ID. Nếu trùng ID, YAML lỗi hoặc tham chiếu không tồn tại, app giữ dữ liệu đã biết và báo lỗi thay vì nhận nhầm note.
+
 Mở **Strategy map** để lọc theo Horizon và đi từ Strategy → Mission → Outcome → Initiative → Project → Task/Session/Output. Chọn node để xem chi tiết. Why Path của session giải thích đường nối về mission và vision.
 
 ## 4. Làm việc với Session
 
 1. Vào **Today → Plan session**, chọn Project hoặc Goal, giờ, thời lượng, priority, WHY, INPUT và target.
-2. Mở session, kiểm tra **WHY**, **INPUT**, **RELATED KNOWLEDGE** và **TODAY'S TARGET**.
-3. Chọn **Start session**. Mỗi thời điểm chỉ có một session Active.
-4. Chọn **Finish & record result** và lưu output, learning, next action, link hoặc tổng phút hiệu chỉnh.
+2. Vào **Settings → Obsidian workspace**, chọn vault. App tạo một note cho mỗi session mà không ghi đè note có sẵn.
+3. Mở session rồi chọn **Open note**. Làm việc và ghi Output/Learning/Next Action trong Obsidian.
+4. Sau giờ kết thúc, đặt `status: done` và ghi Output cụ thể. App tự kiểm tra khi đang mở, khi quay lại app hoặc khi bạn chọn **Check result**.
 
 | Trạng thái | Cách dùng |
 | --- | --- |
-| Planned | Chưa bắt đầu |
-| Active | Timer đang chạy, kể cả khi đóng app |
-| In Progress | Tạm dừng và sẽ tiếp tục |
-| Blocked | Bị chặn; bắt buộc ghi blocker/next action, có thể reschedule hoặc resume |
-| Done | Hoàn tất |
+| Planned | Đã lên lịch hoặc đang chờ kết quả |
+| Done | Được xác nhận sau giờ kết thúc từ `status: done` + Output trong Obsidian |
 | Skipped | Chủ động bỏ qua |
 | Cancelled | Hủy; không tính vào mẫu số completion |
 
-Done, Skipped và Cancelled là trạng thái cuối. Duration chỉnh tay thay thế các focus interval của session và được tính tại thời điểm review.
+`planned_minutes` chỉ là thời lượng dành trên lịch, không phải thời gian đã học. App không có Start/Pause/Stop và không đo elapsed time. Nếu thiếu Done hoặc Output, session tiếp tục ở trạng thái chờ; output bổ sung muộn sẽ được tính lại vào đúng occurrence ban đầu.
 
 ## 5. Lịch lặp và kế hoạch tuần
 
-Trong **Today → Recurring plan**, tạo Session template rồi Recurring schedule. Weekday dùng ISO `1..7` tương ứng thứ Hai đến Chủ nhật. App tự materialize 21 ngày; **Generate 12 weeks** mở rộng đến 93 ngày và không tạo trùng occurrence.
+Trong **Today → Recurring plan**, tạo Session template rồi Recurring schedule. Weekday dùng ISO `1..7` tương ứng thứ Hai đến Chủ nhật. App tự materialize 21 ngày; **Generate 12 weeks** mở rộng đến 93 ngày và không tạo trùng occurrence. Streak được tính theo các occurrence Done liên tiếp của từng lịch; ngày không có lịch không làm đứt streak, Skipped làm đứt và Cancelled bị loại.
 
 Trong **Review**, chọn Mission rồi **Create plan preview**. Hệ thống local đề xuất ưu tiên dựa trên gap/evidence, tạo draft các session thứ Hai–thứ Sáu. Kiểm tra lý do, evidence, risk và confidence; chọn Accept/Reject, sau đó approve và apply change set. Không có thay đổi lịch âm thầm.
 
@@ -135,7 +134,8 @@ Quick capture chỉ cần title/kind. Trong Inbox, chuyển item chưa xử lý 
 
 ## 12. Backup, restore, export và xóa
 
-- **Export database backup** tạo SQLite snapshot nhất quán.
+- **Export workspace backup** tạo ZIP gồm toàn bộ Obsidian vault và SQLite snapshot nhất quán; đây là bản sao lưu đầy đủ trong giai đoạn chuyển tiếp.
+- **Export database backup** chỉ tạo SQLite snapshot để dùng với luồng restore hiện tại.
 - **Restore from backup** kiểm tra header, migrate bản staging, tạo safety snapshot rồi mới thay database đang đóng.
 - **Export portable JSON** xuất toàn bộ bảng cùng schema version/time để kiểm tra hoặc di chuyển dữ liệu.
 - **Personal data controls** xóa riêng Career, Knowledge hoặc Ownership/Capital sau xác nhận. Xóa Knowledge cũng dọn bản managed source nếu đường dẫn nằm đúng vùng app quản lý.
@@ -154,8 +154,10 @@ Database chưa dùng application-level encryption. Hãy bảo vệ tài khoản 
 
 - [ ] Chạy Quick start, đổi theme/name/readiness weights và khởi động lại.
 - [ ] Tạo hierarchy từ Vision đến Session; kiểm tra Strategy map và Why Path.
-- [ ] Plan → Active → In Progress → Active → Blocked → reschedule/resume → Done.
-- [ ] Ghi output/learning/evidence; kiểm tra readiness delta và trajectory.
+- [ ] Tạo session 21:00–22:00; sau 22:00 ghi `status: done` và Output trong Obsidian rồi kiểm tra completion/streak mà không Start session.
+- [ ] Thử thiếu Output, bổ sung Output muộn, đổi tên note, trùng ID và YAML lỗi.
+- [ ] Mở/sửa note Mission, Project, Task; kiểm tra projection và section tùy ý vẫn được giữ.
+- [ ] Ghi output/learning/evidence; kiểm tra Task progress và readiness không tăng chỉ vì session hoàn thành.
 - [ ] Tạo assumption/event/review/recommendation; thử Accept, Modify, Reject và plan propagation.
 - [ ] Import Markdown/PDF/DOCX; thử DOC cũ, file scan, import trùng, search context và open source.
 - [ ] Nhập JD, application, interview/question; kiểm tra clusters, funnel và priority conversion.

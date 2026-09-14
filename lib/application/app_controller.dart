@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import '../domain/models.dart';
 import '../domain/repository.dart';
@@ -10,7 +12,10 @@ class AppController extends ChangeNotifier {
   final IntelligenceProvider intelligenceProvider;
   Workspace workspace = const Workspace();
   bool loading = true;
+  bool reconciling = false;
   String? error;
+  SessionReconciliationSummary lastReconciliation =
+      const SessionReconciliationSummary();
   AppController(
     this.repository, {
     InsightProvider? insightProvider,
@@ -33,33 +38,63 @@ class AppController extends ChangeNotifier {
 
   Future<void> save(String table, DataRowMap row) async {
     await repository.save(table, row);
+    if ({
+          'sessions',
+          'session_templates',
+          'recurring_schedules',
+          'missions',
+          'projects',
+          'tasks',
+        }.contains(table) &&
+        row['id'] is String) {
+      await repository.syncMarkdownRecord(table, row['id'] as String);
+      await repository.reconcileSessions();
+    }
     await refresh();
   }
 
-  Future<void> start(Session s) async {
-    await repository.startSession(s.id, DateTime.now());
-    await refresh();
+  Future<void> configureMarkdownWorkspace(String path) async {
+    await repository.configureMarkdownWorkspace(path);
+    await reconcileSessions();
   }
 
-  Future<void> review(
-    Session s,
-    SessionStatus status, {
-    String output = '',
-    String learning = '',
-    String nextAction = '',
-    String link = '',
-    int? seconds,
+  Future<SessionReconciliationSummary> reconcileSessions({
+    DateTime? now,
   }) async {
-    await repository.reviewSession(
-      s.id,
-      status,
-      DateTime.now(),
-      output: output,
-      learning: learning,
-      nextAction: nextAction,
-      link: link,
-      correctedSeconds: seconds,
-    );
+    if (reconciling) return lastReconciliation;
+    reconciling = true;
+    notifyListeners();
+    try {
+      lastReconciliation = await repository.reconcileSessions(now: now);
+      workspace = await repository.load();
+      error = null;
+      return lastReconciliation;
+    } catch (exception) {
+      error = 'Could not scan the Obsidian workspace: $exception';
+      rethrow;
+    } finally {
+      reconciling = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> openSessionNote(Session session) async {
+    await openMarkdownRecord('sessions', session.id);
+  }
+
+  Future<void> openMarkdownRecord(String table, String id) async {
+    final path = await repository.markdownRecordPath(table, id);
+    if (Platform.isWindows) {
+      await Process.start('explorer.exe', [path]);
+    } else if (Platform.isMacOS) {
+      await Process.start('open', [path]);
+    } else {
+      await Process.start('xdg-open', [path]);
+    }
+  }
+
+  Future<void> setSessionDisposition(Session session, String status) async {
+    await repository.setSessionDisposition(session.id, status);
     await refresh();
   }
 
@@ -70,6 +105,10 @@ class AppController extends ChangeNotifier {
 
   Future<void> triage(String id, String table, DataRowMap row) async {
     await repository.triage(id, table, row);
+    if ({'projects', 'sessions'}.contains(table) && row['id'] is String) {
+      await repository.syncMarkdownRecord(table, row['id'] as String);
+    }
+    if (table == 'sessions') await repository.reconcileSessions();
     await refresh();
   }
 
@@ -186,6 +225,7 @@ class AppController extends ChangeNotifier {
 
   Future<int> applyPlanningChangeSet(String id) async {
     final count = await repository.applyPlanningChangeSet(id);
+    await repository.reconcileSessions();
     await refresh();
     return count;
   }

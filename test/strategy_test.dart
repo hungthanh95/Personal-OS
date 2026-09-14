@@ -1024,6 +1024,10 @@ void main() {
     expect(generated.data['occurrence_date'], dateText);
     await repo.save('recurring_schedules', {'id': 'schedule', 'enabled': 0});
     workspace = await repo.load();
-    expect(workspace.sessions, isEmpty);
+    expect(workspace.sessions, hasLength(1));
+    expect(
+      workspace.records('recurring_schedules').single.number('enabled'),
+      0,
+    );
   });
 }

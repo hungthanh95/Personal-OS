@@ -80,6 +80,22 @@ class Session extends Entity {
   DateTime get plannedStart => at('planned_start')!;
   int get plannedMinutes => number('planned_minutes', 60);
   int get actualSeconds => number('actual_seconds');
+  DateTime get plannedEnd =>
+      plannedStart.add(Duration(minutes: plannedMinutes));
+  String get notePath => text('note_path');
+  String get outputMarkdown => text('output_markdown');
+  String get learningMarkdown => text('learning_markdown');
+  String get reconciliationError => text('reconciliation_error');
+  bool get isMissingOutput =>
+      reconciliationError ==
+      'Status is done but Output is missing or unresolved.';
+  DateTime? get confirmedAt => at('confirmed_at');
+  String? get recurringScheduleId => ref('recurring_schedule_id');
+  bool isDue(DateTime now) => !plannedEnd.isAfter(now);
+  bool isAwaitingResult(DateTime now) =>
+      isDue(now) && !status.terminal && !hasReconciliationError;
+  bool get hasReconciliationError =>
+      reconciliationError.isNotEmpty && !isMissingOutput;
   DateTime? get segmentStart => at('segment_start');
   bool get attended =>
       at('actual_start') != null && status != SessionStatus.cancelled;
@@ -88,6 +104,12 @@ class Session extends Entity {
       (segmentStart == null
           ? 0
           : max(0, now.difference(segmentStart!).inSeconds));
+}
+
+class SessionStreak {
+  final int confirmed;
+  final int pending;
+  const SessionStreak({required this.confirmed, required this.pending});
 }
 
 class WorkTask extends Entity {
@@ -250,6 +272,44 @@ class Workspace {
       : items.where((m) => m.completed).length / items.length;
   double? projectProgress(String id) =>
       progress(milestones.where((m) => m.projectId == id));
+  double? projectExecutionProgress(String id) {
+    final items = tasks
+        .where((task) => task.ref('project_id') == id)
+        .where((task) => task.text('status') != 'Cancelled')
+        .toList();
+    if (items.isEmpty) return null;
+    return items.where((task) => task.done).length / items.length;
+  }
+
+  SessionStreak sessionStreak(String scheduleId, DateTime now) {
+    final due =
+        sessions
+            .where((session) => session.recurringScheduleId == scheduleId)
+            .where((session) => session.isDue(now))
+            .where((session) => session.status != SessionStatus.cancelled)
+            .toList()
+          ..sort((a, b) => a.plannedStart.compareTo(b.plannedStart));
+    var streak = 0;
+    var pending = 0;
+    for (final session in due) {
+      if (session.status == SessionStatus.done) {
+        streak++;
+      } else if (session.status == SessionStatus.skipped) {
+        streak = 0;
+      } else {
+        pending = due
+            .where(
+              (candidate) =>
+                  !candidate.plannedStart.isBefore(session.plannedStart) &&
+                  !candidate.status.terminal,
+            )
+            .length;
+        break;
+      }
+    }
+    return SessionStreak(confirmed: streak, pending: pending);
+  }
+
   double? goalProgress(String id) =>
       progress(milestones.where((m) => project(m.projectId)?.goalId == id));
   List<Session> today(DateTime now) {
@@ -356,7 +416,7 @@ class Workspace {
         )
         .toList();
     final activeDays = periodSessions
-        .where((session) => session.attended)
+        .where((session) => session.status == SessionStatus.done)
         .map(
           (session) =>
               '${session.plannedStart.year}-${session.plannedStart.month}-${session.plannedStart.day}',
@@ -434,6 +494,37 @@ class Workspace {
                   r.number('weight', 1),
         ) /
         weight;
+  }
+
+  double? missionExecutionProgress(String id) {
+    final mission = record('missions', id);
+    if (mission == null) return null;
+    final projectIds = projects
+        .where((project) {
+          if (project.outcomeId != null) {
+            return record('outcomes', project.outcomeId)?.ref('mission_id') ==
+                id;
+          }
+          if (project.initiativeId != null) {
+            final initiative = record('initiatives', project.initiativeId);
+            return initiative?.ref('mission_id') == id ||
+                record(
+                      'outcomes',
+                      initiative?.ref('outcome_id'),
+                    )?.ref('mission_id') ==
+                    id;
+          }
+          return project.goalId != null &&
+              project.goalId == mission.ref('goal_id');
+        })
+        .map((project) => project.id)
+        .toSet();
+    final items = tasks
+        .where((task) => projectIds.contains(task.ref('project_id')))
+        .where((task) => task.text('status') != 'Cancelled')
+        .toList();
+    if (items.isEmpty) return null;
+    return items.where((task) => task.done).length / items.length;
   }
 
   String whyPath(Session session) {

@@ -86,7 +86,7 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
-  testWidgets('Session execution records output, learning and next action', (
+  testWidgets('Scheduled session uses Obsidian result workflow without timer', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1440, 1100);
@@ -95,44 +95,15 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(PersonalOsApp(app: app));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Start session').first);
+    await tester.tap(find.text('Modern C++ — Smart Pointers').first);
     await tester.pumpAndSettle();
-    await mutate(tester, find.text('Start session').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Finish'), findsOneWidget);
-    expect(find.text('Quick note'), findsOneWidget);
-    expect(find.text('Pause'), findsOneWidget);
-    expect(find.text('WHY'), findsNothing);
-    expect(find.text('RELATED KNOWLEDGE'), findsNothing);
-    await tester.tap(find.text('Finish'));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Actual output · evidence of useful work'),
-      'A working unique_ptr example',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextField, 'What did I learn?'),
-      'Ownership is explicit',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Next action'),
-      'Compare shared_ptr',
-    );
-    await mutate(tester, find.text('Finish & Add Evidence'));
-    await tester.pumpAndSettle();
-    expect(
-      app.workspace.outputs.any(
-        (o) => o.text('description') == 'A working unique_ptr example',
-      ),
-      isTrue,
-    );
-    expect(
-      app.workspace.knowledge.any(
-        (k) => k.text('content') == 'Ownership is explicit',
-      ),
-      isTrue,
-    );
-    expect(app.workspace.project('cpp-path')!.nextAction, 'Compare shared_ptr');
+    expect(find.text('Scheduled learning / work'), findsOneWidget);
+    expect(find.text('Open note'), findsOneWidget);
+    expect(find.text('Check result'), findsOneWidget);
+    expect(find.text('Start session'), findsNothing);
+    expect(find.text('Pause'), findsNothing);
+    expect(find.text('Finish'), findsNothing);
+    expect(find.text('HOW COMPLETION WORKS'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -169,7 +140,7 @@ void main() {
     expect(find.text('Session'), findsOneWidget);
     await tester.tap(find.text('Session'));
     await tester.pumpAndSettle();
-    expect(find.text('Focus session'), findsOneWidget);
+    expect(find.text('Scheduled learning / work'), findsOneWidget);
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);

@@ -71,7 +71,7 @@ void main() {
       expect(w.outputs.single.sessionId, 's');
       expect(w.knowledge.single.ref('session_id'), 's');
       expect(w.projects.single.nextAction, 'Test edge cases');
-      expect(WeeklyMetrics.calculate(w, now).focusedSeconds, 1500);
+      expect(WeeklyMetrics.calculate(w, now).scheduledMinutes, 60);
       await expectLater(
         repo.reviewSession('s', SessionStatus.done, now, output: 'Duplicate'),
         throwsStateError,
@@ -170,13 +170,21 @@ void main() {
       throwsStateError,
     );
   });
-  test('Rescheduling validates state and keeps duration data', () async {
-    await addSession('s');
-    await repo.reschedule('s', now.add(const Duration(days: 1)), 30);
-    expect((await repo.load()).sessions.single.plannedMinutes, 30);
-    await repo.startSession('s', now);
-    await expectLater(repo.reschedule('s', now, 60), throwsStateError);
-  });
+  test(
+    'Rescheduling updates planned allocation and rejects terminal rows',
+    () async {
+      await addSession('s');
+      await repo.reschedule('s', now.add(const Duration(days: 1)), 30);
+      expect((await repo.load()).sessions.single.plannedMinutes, 30);
+      await repo.db.update(
+        'sessions',
+        {'status': 'DONE'},
+        where: 'id = ?',
+        whereArgs: ['s'],
+      );
+      await expectLater(repo.reschedule('s', now, 60), throwsStateError);
+    },
+  );
   test(
     'Seed is only created once; clear demo never reseeds on reopen',
     () async {

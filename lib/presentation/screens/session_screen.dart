@@ -1,9 +1,8 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+
 import '../../application/app_controller.dart';
 import '../../domain/models.dart';
 import '../widgets/common.dart';
-import 'record_editor.dart';
 import 'library_screen.dart';
 
 Future<void> openSession(
@@ -15,40 +14,27 @@ Future<void> openSession(
     builder: (_) => SessionScreen(app: app, id: session.id),
   ),
 );
-Future<void> reviewSession(
-  BuildContext context,
-  AppController app,
-  Session session, {
-  SessionStatus status = SessionStatus.done,
-}) => showDialog<void>(
-  context: context,
-  barrierDismissible: false,
-  builder: (_) =>
-      SessionReviewDialog(app: app, session: session, initialStatus: status),
-);
 
 class SessionScreen extends StatefulWidget {
   final AppController app;
   final String id;
   const SessionScreen({required this.app, required this.id, super.key});
+
   @override
   State<SessionScreen> createState() => _SessionScreenState();
 }
 
 class _SessionScreenState extends State<SessionScreen> {
-  Timer? timer;
   List<KnowledgeSearchHit> relatedKnowledge = const [];
   bool loadingKnowledge = true;
+
   @override
   void initState() {
     super.initState();
-    timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-    loadRelatedKnowledge();
+    _loadRelatedKnowledge();
   }
 
-  Future<void> loadRelatedKnowledge() async {
+  Future<void> _loadRelatedKnowledge() async {
     final session = widget.app.workspace.sessions
         .where((item) => item.id == widget.id)
         .firstOrNull;
@@ -59,7 +45,10 @@ class _SessionScreenState extends State<SessionScreen> {
       );
       if (mounted) {
         setState(() {
-          relatedKnowledge = results.take(5).toList();
+          relatedKnowledge = results
+              .where((hit) => hit.item.ref('session_id') != session.id)
+              .take(5)
+              .toList();
           loadingKnowledge = false;
         });
       }
@@ -69,33 +58,29 @@ class _SessionScreenState extends State<SessionScreen> {
   }
 
   @override
-  void dispose() {
-    timer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.app,
     builder: (context, _) {
-      final w = widget.app.workspace;
-      final s = w.sessions.where((s) => s.id == widget.id).firstOrNull;
-      if (s == null) {
+      final workspace = widget.app.workspace;
+      final session = workspace.sessions
+          .where((item) => item.id == widget.id)
+          .firstOrNull;
+      if (session == null) {
         return Scaffold(
           appBar: AppBar(),
           body: const Center(
-            child: Text('This session is no longer available.'),
+            child: Text('This scheduled session is unavailable.'),
           ),
         );
       }
-      final p = w.project(s.projectId), g = w.sessionGoal(s);
-      final why =
-          '${w.whyPath(s)}\n\n${s.text('why').isNotEmpty ? s.text('why') : g?.text('why') ?? 'Define why this work matters when planning your next session.'}';
+      final project = workspace.project(session.projectId);
+      final goal = workspace.sessionGoal(session);
+      final now = DateTime.now();
       return Scaffold(
-        appBar: AppBar(title: const Text('Focus session')),
+        appBar: AppBar(title: const Text('Scheduled learning / work')),
         body: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 850),
+            constraints: const BoxConstraints(maxWidth: 880),
             child: ListView(
               padding: const EdgeInsets.all(32),
               children: [
@@ -103,268 +88,182 @@ class _SessionScreenState extends State<SessionScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    Tag(s.status.label),
-                    if (p != null) Tag(p.title),
-                    if (g != null) Tag(g.title),
+                    Tag(_stateLabel(session, now)),
+                    if (project != null) Tag(project.title),
+                    if (goal != null) Tag(goal.title),
                   ],
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  s.title,
+                  session.title,
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  '${dayLabel(s.plannedStart)} · ${timeLabel(s.plannedStart)} · ${s.plannedMinutes} min planned',
+                  '${dayLabel(session.plannedStart)} · ${timeLabel(session.plannedStart)}–${timeLabel(session.plannedEnd)} · ${session.plannedMinutes} min planned',
                 ),
                 const SizedBox(height: 24),
-                if (s.status == SessionStatus.active) ...[
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        durationLabel(s.elapsedSeconds(DateTime.now())),
-                        style: const TextStyle(
-                          fontSize: 34,
-                          fontWeight: FontWeight.w300,
-                        ),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => attempt(
+                        context,
+                        () => widget.app.openSessionNote(session),
                       ),
-                      const Text('Elapsed · continues while the app is closed'),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () => editRecord(
-                          context,
-                          widget.app,
-                          'knowledge',
-                          initial: {
-                            'title': '${s.title} — quick note',
-                            'type': 'Learning',
-                            'project_id': s.projectId,
-                            'goal_id': s.goalId,
-                            'session_id': s.id,
-                          },
-                        ),
-                        icon: const Icon(Icons.note_add_outlined),
-                        label: const Text('Quick note'),
+                      icon: const Icon(Icons.open_in_new),
+                      label: const Text('Open note'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: widget.app.reconciling
+                          ? null
+                          : () => attempt(context, () async {
+                              final result = await widget.app
+                                  .reconcileSessions();
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Checked ${result.scanned} sessions · ${result.pending} awaiting result · ${result.errors} issues.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            }),
+                      icon: const Icon(Icons.sync),
+                      label: Text(
+                        widget.app.reconciling ? 'Checking…' : 'Check result',
                       ),
-                      OutlinedButton.icon(
-                        onPressed: () => attempt(
-                          context,
-                          () => widget.app.review(
-                            s,
-                            SessionStatus.inProgress,
-                            nextAction: s.text('next_action'),
-                          ),
-                        ),
-                        icon: const Icon(Icons.pause),
-                        label: const Text('Pause'),
-                      ),
-                      FilledButton.icon(
-                        onPressed: () => reviewSession(context, widget.app, s),
-                        icon: const Icon(Icons.check),
-                        label: const Text('Finish'),
-                      ),
-                    ],
-                  ),
-                ] else if (!s.status.terminal) ...[
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      FilledButton.icon(
-                        onPressed: () =>
-                            attempt(context, () => widget.app.start(s)),
-                        icon: const Icon(Icons.play_arrow),
-                        label: Text(
-                          s.status == SessionStatus.inProgress
-                              ? 'Resume session'
-                              : s.status == SessionStatus.blocked
-                              ? 'Resolve blocker & resume'
-                              : 'Start session',
-                        ),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () => editRecord(
-                          context,
-                          widget.app,
-                          'sessions',
-                          entity: s,
-                        ),
-                        icon: const Icon(Icons.edit_outlined),
-                        label: const Text('Edit'),
-                      ),
+                    ),
+                    if (!session.status.terminal)
                       OutlinedButton.icon(
                         onPressed: () =>
-                            rescheduleDialog(context, widget.app, s),
+                            rescheduleDialog(context, widget.app, session),
                         icon: const Icon(Icons.event_repeat_outlined),
                         label: const Text('Reschedule'),
                       ),
+                    if (!session.status.terminal)
                       TextButton.icon(
-                        onPressed: () => reviewSession(
+                        onPressed: () => attempt(
                           context,
-                          widget.app,
-                          s,
-                          status: SessionStatus.skipped,
+                          () => widget.app.setSessionDisposition(
+                            session,
+                            'skipped',
+                          ),
                         ),
                         icon: const Icon(Icons.skip_next_outlined),
                         label: const Text('Skip'),
                       ),
-                      PopupMenuButton<String>(
-                        tooltip: 'More session actions',
-                        onSelected: (value) {
-                          if (value == 'cancel') {
-                            reviewSession(
-                              context,
-                              widget.app,
-                              s,
-                              status: SessionStatus.cancelled,
-                            );
-                          }
-                        },
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(
-                            value: 'cancel',
-                            child: Text('Cancel session'),
-                          ),
-                        ],
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.more_horiz, size: 18),
-                              SizedBox(width: 6),
-                              Text('More'),
-                            ],
+                    if (!session.status.terminal)
+                      TextButton.icon(
+                        onPressed: () => attempt(
+                          context,
+                          () => widget.app.setSessionDisposition(
+                            session,
+                            'cancelled',
                           ),
                         ),
+                        icon: const Icon(Icons.event_busy_outlined),
+                        label: const Text('Cancel'),
+                      ),
+                  ],
+                ),
+                if (session.hasReconciliationError) ...[
+                  const SizedBox(height: 20),
+                  MaterialBanner(
+                    content: Text(session.reconciliationError),
+                    leading: const Icon(Icons.warning_amber_outlined),
+                    actions: [
+                      TextButton(
+                        onPressed: () =>
+                            attempt(context, widget.app.reconcileSessions),
+                        child: const Text('Check again'),
                       ),
                     ],
                   ),
                 ],
-                const SizedBox(height: 32),
-                if (s.status == SessionStatus.active) ...[
-                  Section(
-                    "TODAY’S TARGET",
-                    child: Panel(
-                      child: Text(
-                        s.text('target').isEmpty
-                            ? 'Produce one concrete result worth recording.'
-                            : s.text('target'),
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                  ),
-                  Section(
-                    'INPUT',
-                    child: SelectableText(
-                      s.text('input').isEmpty
-                          ? 'No reference material attached.'
-                          : s.text('input'),
-                    ),
-                  ),
-                ] else ...[
-                  Section(
-                    'WHY',
+                const SizedBox(height: 28),
+                Section(
+                  'HOW COMPLETION WORKS',
+                  child: Panel(
                     child: Text(
-                      why,
-                      style: const TextStyle(fontSize: 17, height: 1.6),
+                      session.status == SessionStatus.done
+                          ? 'Confirmed from the Obsidian note: status is done and Output contains a result.'
+                          : session.isAwaitingResult(now)
+                          ? 'The scheduled time has ended. Add status: done and a concrete Output in the Obsidian note, then check again.'
+                          : 'The app waits until ${timeLabel(session.plannedEnd)}, then checks the Obsidian note for status: done and a concrete Output. Planned time is never treated as time worked.',
                     ),
                   ),
-                  Section(
-                    'INPUT',
-                    child: SelectableText(
-                      s.text('input').isEmpty
-                          ? 'No reference material attached.'
-                          : s.text('input'),
-                    ),
+                ),
+                Section(
+                  'WHY',
+                  child: Text(
+                    '${workspace.whyPath(session)}\n\n${session.text('why').isNotEmpty ? session.text('why') : goal?.text('why') ?? 'Define why this scheduled work matters.'}',
+                    style: const TextStyle(fontSize: 17, height: 1.6),
                   ),
+                ),
+                Section(
+                  'GOAL',
+                  child: SelectableText(
+                    session.text('target').isEmpty
+                        ? 'Produce one concrete result worth recording.'
+                        : session.text('target'),
+                  ),
+                ),
+                Section(
+                  'INPUT',
+                  child: SelectableText(
+                    session.text('input').isEmpty
+                        ? 'No reference material attached.'
+                        : session.text('input'),
+                  ),
+                ),
+                if (session.outputMarkdown.isNotEmpty)
                   Section(
-                    'RELATED KNOWLEDGE',
-                    child: Panel(
-                      child: loadingKnowledge
-                          ? const Text('Searching local Knowledge…')
-                          : relatedKnowledge.isEmpty
-                          ? const Text(
-                              'No related local Knowledge found for this session objective.',
-                            )
-                          : Column(
-                              children: [
-                                for (final hit in relatedKnowledge)
-                                  ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: const Icon(
-                                      Icons.menu_book_outlined,
-                                    ),
-                                    title: Text(hit.item.title),
-                                    subtitle: Text(
-                                      '${hit.snippet}\n${hit.relationship}${hit.sectionTitle == null ? '' : ' · ${hit.sectionTitle} @ ${hit.startOffset ?? 0}'}',
-                                    ),
-                                    onTap: () => openEvidence(
-                                      context,
-                                      widget.app,
-                                      hit.item,
-                                    ),
+                    'OUTPUT FROM OBSIDIAN',
+                    child: SelectableText(session.outputMarkdown),
+                  ),
+                if (session.learningMarkdown.isNotEmpty)
+                  Section(
+                    'LEARNING FROM OBSIDIAN',
+                    child: SelectableText(session.learningMarkdown),
+                  ),
+                if (session.text('next_action').isNotEmpty)
+                  Section(
+                    'NEXT ACTION FROM OBSIDIAN',
+                    child: SelectableText(session.text('next_action')),
+                  ),
+                Section(
+                  'RELATED KNOWLEDGE',
+                  child: Panel(
+                    child: loadingKnowledge
+                        ? const Text('Searching local Knowledge…')
+                        : relatedKnowledge.isEmpty
+                        ? const Text('No related Knowledge found.')
+                        : Column(
+                            children: [
+                              for (final hit in relatedKnowledge)
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(Icons.menu_book_outlined),
+                                  title: Text(hit.item.title),
+                                  subtitle: Text(hit.snippet),
+                                  onTap: () => openEvidence(
+                                    context,
+                                    widget.app,
+                                    hit.item,
                                   ),
-                              ],
-                            ),
-                    ),
+                                ),
+                            ],
+                          ),
                   ),
+                ),
+                if (session.notePath.isNotEmpty)
                   Section(
-                    "TODAY’S TARGET",
-                    child: Panel(
-                      child: Text(
-                        s.text('target').isEmpty
-                            ? 'Produce one concrete result worth recording.'
-                            : s.text('target'),
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
+                    'SOURCE NOTE',
+                    child: SelectableText(session.notePath),
                   ),
-                ],
-                if (s.status.terminal ||
-                    s.status == SessionStatus.inProgress ||
-                    s.status == SessionStatus.blocked) ...[
-                  const SizedBox(height: 24),
-                  Section(
-                    'RECORDED RESULT',
-                    child: Text(
-                      '${s.status.label} · ${durationLabel(s.actualSeconds)} recorded',
-                    ),
-                  ),
-                  if (s.text('next_action').isNotEmpty)
-                    Section('NEXT ACTION', child: Text(s.text('next_action'))),
-                  if (s.status == SessionStatus.blocked &&
-                      s.blockedReason.isNotEmpty)
-                    Section('BLOCKER', child: Text(s.blockedReason)),
-                  ...w.outputs
-                      .where((o) => o.sessionId == s.id)
-                      .map(
-                        (o) => Section(
-                          o.title,
-                          child: SelectableText(o.text('description')),
-                        ),
-                      ),
-                  ...w.knowledge
-                      .where((k) => k.ref('session_id') == s.id)
-                      .map(
-                        (k) => Section(
-                          'LEARNING',
-                          child: SelectableText(k.text('content')),
-                        ),
-                      ),
-                ],
               ],
             ),
           ),
@@ -374,206 +273,42 @@ class _SessionScreenState extends State<SessionScreen> {
   );
 }
 
-class SessionReviewDialog extends StatefulWidget {
-  final AppController app;
-  final Session session;
-  final SessionStatus initialStatus;
-  const SessionReviewDialog({
-    required this.app,
-    required this.session,
-    required this.initialStatus,
-    super.key,
-  });
-  @override
-  State<SessionReviewDialog> createState() => _SessionReviewDialogState();
-}
-
-class _SessionReviewDialogState extends State<SessionReviewDialog> {
-  final output = TextEditingController(),
-      learning = TextEditingController(),
-      next = TextEditingController(),
-      link = TextEditingController(),
-      minutes = TextEditingController();
-  late SessionStatus status;
-  bool saving = false;
-  String? error;
-  @override
-  void initState() {
-    super.initState();
-    status = widget.initialStatus;
-    next.text = widget.session.text('next_action');
+String _stateLabel(Session session, DateTime now) {
+  if (session.isMissingOutput) return 'Missing output';
+  if (session.hasReconciliationError) return 'Needs attention';
+  if (session.status == SessionStatus.done) return 'Completed from Obsidian';
+  if (session.status == SessionStatus.skipped) return 'Skipped';
+  if (session.status == SessionStatus.cancelled) return 'Cancelled';
+  if (session.isAwaitingResult(now)) return 'Awaiting result';
+  if (!now.isBefore(session.plannedStart) && now.isBefore(session.plannedEnd)) {
+    return 'Scheduled now';
   }
-
-  @override
-  void dispose() {
-    for (final c in [output, learning, next, link, minutes]) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  Widget field(TextEditingController c, String label, {int lines = 3}) =>
-      Padding(
-        padding: const EdgeInsets.only(top: 16),
-        child: TextField(
-          controller: c,
-          minLines: lines,
-          maxLines: lines + 2,
-          decoration: InputDecoration(labelText: label),
-        ),
-      );
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('What did this session produce?'),
-    content: SizedBox(
-      width: 590,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.session.title),
-            const SizedBox(height: 20),
-            field(output, 'Actual output · evidence of useful work'),
-            field(learning, 'What did I learn?'),
-            field(next, 'Next action'),
-            if (status == SessionStatus.inProgress ||
-                status == SessionStatus.blocked)
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text(
-                  'Record the blocker or a concrete next action to make restarting easier.',
-                ),
-              ),
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: const Text('Advanced'),
-              subtitle: const Text('Status, evidence link and time correction'),
-              children: [
-                DropdownButtonFormField<SessionStatus>(
-                  initialValue: status,
-                  decoration: const InputDecoration(labelText: 'Status'),
-                  items:
-                      [
-                            SessionStatus.done,
-                            SessionStatus.inProgress,
-                            SessionStatus.blocked,
-                            SessionStatus.skipped,
-                            SessionStatus.cancelled,
-                          ]
-                          .where(
-                            (candidate) => widget.session.status
-                                .canTransitionTo(candidate),
-                          )
-                          .map(
-                            (candidate) => DropdownMenuItem(
-                              value: candidate,
-                              child: Text(candidate.label),
-                            ),
-                          )
-                          .toList(),
-                  onChanged: saving
-                      ? null
-                      : (value) => setState(() => status = value!),
-                ),
-                field(link, 'Evidence link / local file path', lines: 1),
-                field(
-                  minutes,
-                  'Correct total focused minutes (optional)',
-                  lines: 1,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Leave duration blank to use the timer. Manual corrections are attributed to this review date.',
-              style: TextStyle(fontSize: 12),
-            ),
-            if (error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Text(
-                  error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              ),
-          ],
-        ),
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: saving ? null : () => Navigator.pop(context),
-        child: const Text('Back'),
-      ),
-      FilledButton(
-        onPressed: saving ? null : save,
-        child: Text(saving ? 'Saving…' : 'Finish & Add Evidence'),
-      ),
-    ],
-  );
-  Future<void> save() async {
-    final duration = minutes.text.trim().isEmpty
-        ? null
-        : double.tryParse(minutes.text);
-    if (minutes.text.trim().isNotEmpty &&
-        (duration == null || !duration.isFinite || duration < 0)) {
-      setState(() => error = 'Enter a non-negative number of minutes.');
-      return;
-    }
-    if (status == SessionStatus.blocked && next.text.trim().isEmpty) {
-      setState(() => error = 'Describe the blocker in Next action.');
-      return;
-    }
-    setState(() {
-      saving = true;
-      error = null;
-    });
-    try {
-      await widget.app.review(
-        widget.session,
-        status,
-        output: output.text,
-        learning: learning.text,
-        nextAction: next.text,
-        link: link.text,
-        seconds: duration == null ? null : (duration * 60).round(),
-      );
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          saving = false;
-          error = '$e';
-        });
-      }
-    }
-  }
+  return 'Planned';
 }
 
 Future<void> rescheduleDialog(
   BuildContext context,
   AppController app,
-  Session s,
+  Session session,
 ) async {
   final day = await showDatePicker(
     context: context,
-    initialDate: s.plannedStart,
+    initialDate: session.plannedStart,
     firstDate: DateTime(2000),
     lastDate: DateTime(2100),
   );
   if (day == null || !context.mounted) return;
   final time = await showTimePicker(
     context: context,
-    initialTime: TimeOfDay.fromDateTime(s.plannedStart),
+    initialTime: TimeOfDay.fromDateTime(session.plannedStart),
   );
   if (time == null || !context.mounted) return;
   await attempt(
     context,
     () => app.reschedule(
-      s,
+      session,
       DateTime(day.year, day.month, day.day, time.hour, time.minute),
-      s.plannedMinutes,
+      session.plannedMinutes,
     ),
   );
 }

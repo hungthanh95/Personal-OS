@@ -14,14 +14,15 @@ Updated: 13/09/2026. Derived from the complete [Product & Engineering Specificat
 
 ## B. Today and execution
 
-- [x] `DONE` Plan/start/pause/resume/finish/skip/cancel/reschedule and one-active-session invariant.
-- [x] `DONE` Planned, Active, In Progress, Blocked, Done, Skipped and Cancelled session behavior; Blocked stores a required reason and can resume.
-- [x] `DONE` Atomic Actual Output, learning, Next Action, link and duration correction.
+- [x] `DONE` Plan/open note/check result/skip/cancel/reschedule workflow; no Start/Pause/Resume/Stop or elapsed-time requirement.
+- [x] `DONE` Planned, Done, Skipped and Cancelled scheduled-session behavior; overdue incomplete notes remain awaiting result.
+- [x] `DONE` Output, Learning and Next Action projection from the stable-ID Obsidian occurrence note.
 - [x] `DONE` Task schedule, estimate/actual, priority, statuses and Session relationship.
 - [x] `DONE` Today summary, overdue ordering, deterministic insights, active Mission and Why Path.
 - [x] `DONE` Recurring templates/schedules, automatic 21-day materialization, manual 12-week generation and duplicate prevention.
 - [x] `DONE` Local next-week priority generation and multi-session weekly plan preview.
 - [x] `DONE` Accepted changes propagate only through explicit preview, approve and apply.
+- [x] `DONE` Mission, Project, Task and Session Markdown ownership with revision-safe patching, duplicate/error handling and recoverable planning operations.
 
 ## C. Mission and trajectory
 

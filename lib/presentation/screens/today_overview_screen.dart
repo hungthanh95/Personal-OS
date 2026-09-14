@@ -41,7 +41,7 @@ class TodayOverviewScreen extends StatelessWidget {
         if (primary == null)
           EmptyState(
             'Make room for meaningful work',
-            'Plan one focused session and define what you want to produce.',
+            'Plan one session and define what you want to produce.',
             'Plan a session',
             () => editRecord(context, app, 'sessions'),
             icon: Icons.play_circle_outline,
@@ -90,7 +90,8 @@ class TodayOverviewScreen extends StatelessWidget {
                   '${metrics.completed} / ${metrics.planned}',
                   'sessions',
                 ),
-                _weekStat(durationLabel(metrics.focusedSeconds), 'focused'),
+                _weekStat('${metrics.scheduledMinutes} min', 'planned'),
+                _weekStat('${metrics.pending}', 'awaiting result'),
                 _weekStat('${metrics.outputCount}', 'evidence items'),
                 _weekStat('${metrics.goalIds.length}', 'goals touched'),
               ],
@@ -200,17 +201,10 @@ class _PrimaryFocus extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               FilledButton.icon(
-                onPressed: () => openSession(context, app, session),
-                icon: Icon(
-                  session.status == SessionStatus.active
-                      ? Icons.open_in_full
-                      : Icons.play_arrow,
-                ),
-                label: Text(
-                  session.status == SessionStatus.active
-                      ? 'Return to focus'
-                      : 'Start session',
-                ),
+                onPressed: () =>
+                    attempt(context, () => app.openSessionNote(session)),
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('Open note'),
               ),
               TextButton(
                 onPressed: () => rescheduleDialog(context, app, session),
@@ -220,12 +214,13 @@ class _PrimaryFocus extends StatelessWidget {
                 tooltip: 'More session actions',
                 onSelected: (value) {
                   if (value == 'skip') {
-                    reviewSession(
+                    attempt(
                       context,
-                      app,
-                      session,
-                      status: SessionStatus.skipped,
+                      () => app.setSessionDisposition(session, 'skipped'),
                     );
+                  }
+                  if (value == 'check') {
+                    attempt(context, app.reconcileSessions);
                   }
                   if (value == 'edit') {
                     editRecord(context, app, 'sessions', entity: session);
@@ -233,6 +228,7 @@ class _PrimaryFocus extends StatelessWidget {
                 },
                 itemBuilder: (_) => const [
                   PopupMenuItem(value: 'edit', child: Text('Edit plan')),
+                  PopupMenuItem(value: 'check', child: Text('Check result')),
                   PopupMenuItem(value: 'skip', child: Text('Skip session')),
                 ],
               ),

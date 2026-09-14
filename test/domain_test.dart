@@ -80,7 +80,7 @@ void main() {
     );
   });
   test(
-    'Weekly metrics split cross-week intervals and exclude cancelled plans',
+    'Weekly metrics use planned sessions and ignore legacy timer intervals',
     () {
       final sunday = DateTime(2026, 9, 6, 23, 30),
           monday = DateTime(2026, 9, 7, 0, 30);
@@ -107,13 +107,14 @@ void main() {
       final result = WeeklyMetrics.calculate(w, now);
       expect(result.planned, 1);
       expect(result.completed, 1);
-      expect(result.focusedSeconds, 1800);
+      expect(result.scheduledMinutes, 60);
+      expect(result.pending, 0);
       expect(result.outputCount, 1);
       expect(result.goalIds, {'g'});
-      expect(WeeklyMetrics.calculate(w, sunday).focusedSeconds, 1800);
+      expect(WeeklyMetrics.calculate(w, sunday).scheduledMinutes, 0);
     },
   );
-  test('Manual duration correction attributed once to review date', () {
+  test('Legacy timer intervals do not create scheduled-work progress', () {
     final end = DateTime(2026, 9, 7);
     final w = Workspace(
       intervals: [
@@ -126,14 +127,7 @@ void main() {
         }),
       ],
     );
-    expect(WeeklyMetrics.calculate(w, end).focusedSeconds, 900);
-    expect(
-      WeeklyMetrics.calculate(
-        w,
-        end.subtract(const Duration(days: 1)),
-      ).focusedSeconds,
-      0,
-    );
+    expect(WeeklyMetrics.calculate(w, end).scheduledMinutes, 0);
     expect(WeeklyMetrics.calculate(w, end).completion, isNull);
   });
   test('Activity score has documented weights and is bounded', () {
@@ -226,6 +220,24 @@ void main() {
     expect(w.projectProgress('p'), .5);
     expect(w.goalProgress('g'), .5);
     expect(w.projectProgress('none'), isNull);
+  });
+  test('A confirmed session does not change task execution or readiness', () {
+    final w = Workspace(
+      projects: [project('p')],
+      sessions: [session('confirmed')],
+      tasks: [
+        WorkTask({
+          'id': 'task',
+          'project_id': 'p',
+          'title': 'Implement example',
+          'status': 'Planned',
+          'done': 0,
+          'created_at': stamp,
+        }),
+      ],
+    );
+    expect(w.projectExecutionProgress('p'), 0);
+    expect(w.readiness('skill'), 0);
   });
   test(
     'Today includes overdue and active sessions without changing schedule order',

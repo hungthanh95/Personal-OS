@@ -18,15 +18,36 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int selected = 0;
   Timer? clock;
+  DateTime? lastReconciliation;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     clock = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      setState(() {});
+      final now = DateTime.now();
+      final endedSession = widget.app.workspace.sessions.any((session) {
+        final end = session.plannedStart.add(
+          Duration(minutes: session.plannedMinutes),
+        );
+        return !session.status.terminal &&
+            !end.isAfter(now) &&
+            (lastReconciliation == null || end.isAfter(lastReconciliation!));
+      });
+      final hasDueSessionWaiting = widget.app.workspace.sessions.any(
+        (session) => session.isDue(now) && !session.status.terminal,
+      );
+      if (endedSession ||
+          (hasDueSessionWaiting &&
+              (lastReconciliation == null ||
+                  now.difference(lastReconciliation!).inMinutes >= 5))) {
+        _reconcile();
+      }
     });
     if (widget.databasePath != 'test.sqlite' &&
         widget.app.workspace.settings['onboarding_complete'] != 'true') {
@@ -38,8 +59,24 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     clock?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _reconcile();
+  }
+
+  Future<void> _reconcile() async {
+    if (widget.app.reconciling) return;
+    lastReconciliation = DateTime.now();
+    try {
+      await widget.app.reconcileSessions();
+    } catch (_) {
+      // AppController exposes the actionable error in the shell banner.
+    }
   }
 
   void go(int index) => setState(() => selected = index);

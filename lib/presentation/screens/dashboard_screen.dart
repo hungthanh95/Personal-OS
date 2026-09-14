@@ -177,6 +177,7 @@ class DashboardScreen extends StatelessWidget {
       );
     }
     final progress = app.workspace.missionProgress(mission.id);
+    final execution = app.workspace.missionExecutionProgress(mission.id);
     final subtitle = mission.text('description').isNotEmpty
         ? mission.text('description')
         : mission.text('success_criteria');
@@ -231,6 +232,8 @@ class DashboardScreen extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 28),
+          const Text('Outcome progress'),
+          const SizedBox(height: 6),
           Row(
             children: [
               Text(
@@ -257,6 +260,20 @@ class DashboardScreen extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Text(
+            execution == null
+                ? 'Task execution · Not measured'
+                : 'Task execution · ${(execution * 100).round()}%',
+          ),
+          if (execution != null) ...[
+            const SizedBox(height: 6),
+            LinearProgressIndicator(
+              value: execution,
+              minHeight: 6,
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ],
           const SizedBox(height: 20),
           OutlinedButton.icon(
             onPressed: onMission,
@@ -358,9 +375,9 @@ class DashboardScreen extends StatelessWidget {
           color: const Color(0xff26956a),
         ),
         _compactStat(
-          Icons.timer_outlined,
-          'Focused',
-          durationLabel(metrics?.focusedSeconds ?? 0),
+          Icons.pending_actions_outlined,
+          'Awaiting result',
+          '${metrics?.pending ?? 0}',
         ),
         _compactStat(
           Icons.inventory_2_outlined,
@@ -403,7 +420,7 @@ class DashboardScreen extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   SizedBox(height: 5),
-                  Text('Plan one focused session and define a clear target.'),
+                  Text('Plan one session and define a clear output.'),
                 ],
               )
             else
@@ -418,9 +435,10 @@ class DashboardScreen extends StatelessWidget {
                 case final session?) ...[
               const SizedBox(height: 8),
               FilledButton.icon(
-                onPressed: () => openSession(context, app, session),
-                icon: const Icon(Icons.play_arrow, size: 18),
-                label: const Text('Start session'),
+                onPressed: () =>
+                    attempt(context, () => app.openSessionNote(session)),
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: const Text('Open scheduled note'),
               ),
             ],
           ],

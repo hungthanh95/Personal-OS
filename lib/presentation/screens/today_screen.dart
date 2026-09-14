@@ -94,6 +94,12 @@ class TodayScreen extends StatelessWidget {
                   Text(
                     '${(w.missionProgress(w.activeMission!.id) * 100).round()}% outcome attainment',
                   ),
+                  if (w.missionExecutionProgress(w.activeMission!.id)
+                      case final execution?) ...[
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(value: execution),
+                    Text('${(execution * 100).round()}% task execution'),
+                  ],
                 ],
               ],
             ),
@@ -114,9 +120,13 @@ class TodayScreen extends StatelessWidget {
                 ),
                 const Text('planned sessions completed'),
                 const Divider(),
-                _stat('Focused time', durationLabel(metrics.focusedSeconds)),
+                _stat('Planned time', '${metrics.scheduledMinutes} min'),
+                _stat('Awaiting result', '${metrics.pending}'),
                 _stat('Outputs produced', '${metrics.outputCount}'),
-                _stat('Goals attended', '${metrics.goalIds.length}'),
+                _stat(
+                  'Goals with confirmed sessions',
+                  '${metrics.goalIds.length}',
+                ),
                 const SizedBox(height: 8),
                 Text(
                   'Since ${dayLabel(metrics.start)}',
@@ -230,28 +240,12 @@ class SessionTile extends StatelessWidget {
                   tooltip: 'Session actions',
                   onSelected: (value) {
                     switch (value) {
-                      case 'done':
-                        reviewSession(context, app, s);
-                      case 'progress':
-                        reviewSession(
-                          context,
-                          app,
-                          s,
-                          status: SessionStatus.inProgress,
-                        );
-                      case 'blocked':
-                        reviewSession(
-                          context,
-                          app,
-                          s,
-                          status: SessionStatus.blocked,
-                        );
+                      case 'check':
+                        attempt(context, app.reconcileSessions);
                       case 'skip':
-                        reviewSession(
+                        attempt(
                           context,
-                          app,
-                          s,
-                          status: SessionStatus.skipped,
+                          () => app.setSessionDisposition(s, 'skipped'),
                         );
                       case 'reschedule':
                         rescheduleDialog(context, app, s);
@@ -259,19 +253,9 @@ class SessionTile extends StatelessWidget {
                   },
                   itemBuilder: (_) => [
                     const PopupMenuItem(
-                      value: 'done',
-                      child: Text('Mark done & review'),
+                      value: 'check',
+                      child: Text('Check Obsidian result'),
                     ),
-                    if (s.status != SessionStatus.inProgress)
-                      const PopupMenuItem(
-                        value: 'progress',
-                        child: Text('Mark in progress'),
-                      ),
-                    if (s.status != SessionStatus.blocked)
-                      const PopupMenuItem(
-                        value: 'blocked',
-                        child: Text('Mark blocked'),
-                      ),
                     const PopupMenuItem(value: 'skip', child: Text('Skip')),
                     if (s.status != SessionStatus.active)
                       const PopupMenuItem(
@@ -298,26 +282,15 @@ class SessionTile extends StatelessWidget {
             children: [
               Tag(s.status.label),
               Tag('P${s.priority}'),
-              if (!s.status.terminal)
-                OutlinedButton.icon(
-                  onPressed: () => openSession(context, app, s),
-                  icon: Icon(
-                    s.status == SessionStatus.active
-                        ? Icons.open_in_full
-                        : Icons.play_arrow,
-                    size: 16,
-                  ),
-                  label: Text(
-                    s.status == SessionStatus.active
-                        ? 'Return to focus'
-                        : 'Start session',
-                  ),
-                )
-              else
-                TextButton(
-                  onPressed: () => openSession(context, app, s),
-                  child: const Text('View result'),
-                ),
+              OutlinedButton.icon(
+                onPressed: () => attempt(context, () => app.openSessionNote(s)),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('Open note'),
+              ),
+              TextButton(
+                onPressed: () => openSession(context, app, s),
+                child: const Text('View details'),
+              ),
             ],
           ),
         ],

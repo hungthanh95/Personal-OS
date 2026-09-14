@@ -144,17 +144,18 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     : '${(previous.completion! * 100).round()}%',
               ),
               _row(
-                'Focused time',
-                durationLabel(m.focusedSeconds),
-                durationLabel(previous.focusedSeconds),
+                'Planned time',
+                '${m.scheduledMinutes} min',
+                '${previous.scheduledMinutes} min',
               ),
+              _row('Awaiting result', '${m.pending}', '${previous.pending}'),
               _row(
                 'Outputs produced',
                 '${m.outputCount}',
                 '${previous.outputCount}',
               ),
               _row(
-                'Goals attended',
+                'Goals with confirmed sessions',
                 '${m.goalIds.length}',
                 '${previous.goalIds.length}',
               ),
@@ -169,7 +170,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
               children: w.goals.isEmpty
                   ? [
                       const Text(
-                        'Create a goal to connect your focused time to a direction.',
+                        'Create a goal to connect scheduled work to a direction.',
                       ),
                     ]
                   : w.goals
@@ -341,7 +342,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
           ),
         ),
         const Text(
-          'Weeks start Monday. Focused time comes from recorded intervals; live sessions appear after review. Completion follows planned dates. Current goal/project labels are used for historical weeks.',
+          'Weeks start Monday. Planned time is calendar allocation only. Completion requires status: done plus a concrete Output in the Obsidian session note; overdue sessions awaiting a result are shown separately.',
           style: TextStyle(fontSize: 12),
         ),
       ],
